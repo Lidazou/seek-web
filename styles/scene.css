@@ -1,0 +1,228 @@
+/* ==========================================================================
+ * scene.css · 首页 3D 场景（视口 / 氛围 / 星空 / HUD）
+ * --------------------------------------------------------------------------
+ * 放：.viewport / .world / .fit、氛围层、深空画布、星尘与 twinkle 关键帧、
+ *     角标与 HUD、首页两个入口按钮。
+ * 唱片机本体在 turntable.css，SEEK 灯牌在 neon.css。
+ * ========================================================================== */
+
+.fit {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform-style: preserve-3d;
+  transition: top 1.2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.fit.down {
+  top: 50%;
+}
+
+.world {
+  transform: rotateX(-50deg);
+  transform-style: preserve-3d;
+  transition: transform 1.2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.world.tilted {
+  transform: rotateX(-32deg) scale(.926);
+}
+
+/* ========================================================================== */
+/* 唱片机 · 构件与封面盒 */
+/* ========================================================================== */
+.object, .plane, .case, .face, .deck, .record, .arm {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+body.lit #deepsky {
+  opacity: 1;
+}
+
+#stardust {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 2.8s ease .2s;
+}
+
+#stardust i {
+  position: absolute;
+  border-radius: 50%;
+  background: #d5d6c8;
+  box-shadow: 0 0 7px #d2c6a350;
+}
+
+body.lit #stardust {
+  opacity: 1;
+}
+
+/* ========================================================================== */
+/* 动画 · keyframes */
+/* ========================================================================== */
+@keyframes twinkle {
+  from {
+    opacity: var(--o, .3);
+  }
+  to {
+    opacity: calc(var(--o, .3) * .3);
+  }
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #a9a398;
+  padding: 0 8px;
+}
+
+.zoom-control input {
+  width: 70px;
+  accent-color: #b8a77d;
+}
+
+.zoom-control output {
+  width: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.about {
+  position: fixed;
+  left: 50%;
+  top: 34px;
+  transform: translate(-50%, 48px);
+  z-index: 18;
+  width: min(700px, 88vw);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1.2s ease .15s, transform 1.2s cubic-bezier(.22, .61, .36, 1) .15s;
+  pointer-events: none;
+}
+
+.about.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.about-title {
+  font-size: 52px;
+  letter-spacing: 8px;
+  font-weight: 400;
+  color: #efe4c8;
+  text-shadow: 0 2px 20px #000c;
+}
+
+.about-title b {
+  color: #b8a77d;
+  font-weight: 400;
+}
+
+.about-sub {
+  font-size: 15px;
+  letter-spacing: 4px;
+  color: #b3a67f;
+  margin: 10px 0 16px;
+}
+
+.about-desc {
+  font-size: 14px;
+  line-height: 2;
+  letter-spacing: 1px;
+  color: #cfc8b6;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.about-meta {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #8a8068;
+  margin-top: 16px;
+}
+
+header, .toolbar, .hud, #progress {
+  display: none;
+}
+
+/* ========================================================================== */
+/* 界面骨架 · 角标 / HUD / 进度 */
+/* ========================================================================== */
+.corner {
+  position: fixed;
+  top: 36px;
+  z-index: 16;
+  pointer-events: none;
+  color: #c9ba8e;
+}
+
+.corner-tl {
+  left: 42px;
+  text-align: left;
+}
+
+.corner-tr {
+  right: 42px;
+  text-align: right;
+}
+
+.corner-brand {
+  font-size: 21px;
+  letter-spacing: 8px;
+  color: #e7d9b4;
+  text-shadow: 0 0 18px #b8a77d33;
+}
+
+.corner-tag {
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: #8a8068;
+  margin-top: 8px;
+}
+
+.corner-line {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #c3b48a;
+  line-height: 1.7;
+}
+
+.corner:after {
+  content: '';
+  display: block;
+  width: 46px;
+  height: 1px;
+  background: linear-gradient(90deg, #b8a77d, transparent);
+  margin-top: 10px;
+}
+
+.corner-tr:after {
+  margin-left: auto;
+  background: linear-gradient(270deg, #b8a77d, transparent);
+}
+
+.orbit-entry:hover {
+  border-color: #d8b789;
+}
+
+.search-active .orbit-entry {
+  display: none;
+}
+
+.orbit-entry.secondary {
+  left: auto;
+  right: 20px;
+  transform: none;
+  bottom: 25px;
+  padding: 10px 20px;
+  font-size: 11px;
+  border-color: #5d7b8a4a;
+  color: #a9c4c2;
+  letter-spacing: 1px;
+}
+
+.orbit-entry.secondary:hover {
+  border-color: #8fb7bf;
+}

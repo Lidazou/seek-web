@@ -1,0 +1,185 @@
+/* ==========================================================================
+ * responsive.css · 媒体查询
+ * --------------------------------------------------------------------------
+ * 全站所有 @media 都集中在这里，并且最后加载，
+ * 保证窄屏覆盖与「减少动态效果」降级永远生效。
+ * 基础文件里不要再写 media query。
+ * ========================================================================== */
+
+@media(max-width:600px) {
+  header {
+    top: 25px;
+    left: 22px;
+  }
+  h1 {
+    font-size: 20px;
+  }
+  .toolbar {
+    top: 26px;
+    right: 18px;
+  }
+  .toolbar button {
+    padding: 9px;
+    font-size: 10px;
+  }
+  .toolbar button: last-child {
+    display: none;
+  }
+  header p {
+    max-width: 180px;
+    line-height: 1.8;
+  }
+  .hud {
+    left: 22px;
+    right: 22px;
+    bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .hint {
+    max-width: 145px;
+  }
+  .info {
+    bottom: 95px;
+  }
+}
+
+@media(max-width:700px) {
+  .zoom-control {
+    display: none;
+  }
+}
+
+@media(max-width:650px) {
+  .search-header {
+    padding: 18px 16px;
+    gap: 8px;
+  }
+  .search-header-actions {
+    gap: 3px;
+  }
+  .search-header-actions button {
+    padding: 8px;
+    font-size: 11px;
+  }
+  .memory-anchor {
+    max-width: 53vw;
+  }
+  .memory-anchor p {
+    font-size: 19px;
+  }
+  .composer {
+    margin-top: 22vh;
+  }
+  .search-heading {
+    font-size: 26px;
+  }
+  .composer textarea {
+    font-size: 16px;
+  }
+  .glass-sheet {
+    padding: 16px;
+  }
+  .cover-stage {
+    gap: 14px;
+  }
+  .cover-stage .arrow {
+    width: 34px;
+    height: 34px;
+  }
+  .viewer {
+    padding: 0 12px;
+    margin-top: 30px;
+  }
+  .candidate-reasons {
+    gap: 14px;
+  }
+  .candidate-copy {
+    min-height: 125px;
+  }
+  .candidate-copy h2 {
+    font-size: 22px;
+  }
+  .search-active .neon {
+    translate: 30px -200px 0;
+    scale: .9;
+  }
+  .search-active .corner {
+    visibility: hidden;
+  }
+  .state-card {
+    margin-top: 18vh;
+  }
+  .settings {
+    right: 18px;
+  }
+  .candidate-actions {
+    gap: 6px;
+  }
+  .candidate-actions button {
+    padding: 10px 13px;
+  }
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .search-overlay, .search-overlay *, .neon-spin, .neon-body, .neon-aura, .neon-pool, #stardust i {
+    animation: none!important;
+  }
+  .search-overlay * {
+    transition-duration: .18s!important;
+  }
+  .search-active .world>: not(.neon) {
+    transition: none;
+  }
+  .search-active .neon .n-glow {
+    stroke: #ffb35c!important;
+  }
+  .search-active .neon .n-core {
+    stroke: #fff2d9!important;
+  }
+  .search-active .neon .n-halo {
+    opacity: .28!important;
+  }
+  .search-active .search-lamp, .search-active .glass-sheet: before, .search-active .glass-sheet: after {
+    opacity: 1!important;
+  }
+}
+
+@media(max-width:650px) {
+  .search-active .neon {
+    translate: 30px -300px -230px;
+    scale: .9;
+  }
+  .search-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .search-header-actions #service-button {
+    max-width: 130px;
+    text-align: right;
+  }
+}
+
+@media(max-width:650px) {
+  .memory-anchor {
+    max-height: 29vh;
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+  .memory-additions {
+    max-height: 17vh;
+    padding-left: 12px;
+  }
+  .memory-additions li {
+    font-size: 19px;
+    line-height: 1.7;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .memory-anchor .memory-count {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+}

@@ -1,0 +1,242 @@
+/* ==========================================================================
+ * cd-case.css · 候选封面 3D CD 盒
+ * --------------------------------------------------------------------------
+ * 放：.cd-float / .cd-turn / .cd-case / .cd-back / .cd-edge* / .cd-frame /
+ *     .cd-glass / .cd-hinge、.cover-slot / .cover-stage / .candidate-cover
+ *     三维舞台与粒子手交状态。
+ * 说明：它是一块真正的三维构件（透视、旋转、玻璃层），与搜索 UI 排版无关，
+ *       所以从 search.css 单独拆出，方便只改盒子不动界面。
+ * ========================================================================== */
+
+/* ========================================================================== */
+/* 编辑 CD 集 · 页面与弹窗 */
+/* ========================================================================== */
+.cd-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #07080be6;
+  color: #e8ddc8;
+  overflow: auto;
+  padding: 64px 4vw 48px;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 候选展示 */
+/* ========================================================================== */
+.cover-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 34px;
+  margin: auto;
+  width: 100%;
+  touch-action: pan-y;
+}
+
+.cover-slot {
+  width: min(35vh, 330px, 58vw);
+  aspect-ratio: 1;
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  perspective: 1100px;
+}
+
+.candidate-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+/* The displayed cover is the same jewel case as the ones on the turntable: front
+   artwork, a 10px shell with edges, an acrylic frame, glass and the hinge. It turns
+   slowly and breathes while it sits there. */
+
+/* ========================================================================== */
+/* 展示封面 · 3D CD 盒 */
+/* ========================================================================== */
+.cd-float, .cd-turn, .cd-case {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.cd-turn {
+  transform: rotateY(0deg) rotateX(0deg);
+}
+
+.cd-back, .cd-edge, .cd-frame, .cd-glass, .cd-hinge {
+  visibility: hidden;
+}
+
+.cover-slot.ready .cd-back, .cover-slot.ready .cd-edge, .cover-slot.ready .cd-frame, .cover-slot.ready .cd-glass, .cover-slot.ready .cd-hinge {
+  visibility: visible;
+}
+
+.cd-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  border: 1px solid #a6c4be4a;
+  background: #121819e0;
+  transform: translateZ(-9px) rotateY(180deg);
+  backface-visibility: hidden;
+}
+
+.cd-edge {
+  position: absolute;
+  background: linear-gradient(90deg, #7e918b7a, #f2fffa8c 42%, #1b242188 58%, #c6e6df7a);
+  border: 1px solid #dcece68a;
+}
+
+.cd-edge-l {
+  left: -9px;
+  width: 18px;
+  height: 100%;
+  transform: rotateY(90deg);
+}
+
+.cd-edge-r {
+  right: -9px;
+  width: 18px;
+  height: 100%;
+  transform: rotateY(90deg);
+}
+
+.cd-edge-t {
+  top: -9px;
+  height: 18px;
+  width: 100%;
+  transform: rotateX(90deg);
+}
+
+.cd-edge-b {
+  bottom: -9px;
+  height: 18px;
+  width: 100%;
+  transform: rotateX(90deg);
+}
+
+.cd-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  border: 1px solid #e6f3ef5c;
+  background: linear-gradient(120deg, #d9eeea1a, #ffffff05 34%, #b5d5d318);
+  box-shadow: inset 2px 2px 3px #ffffff42, inset -2px -2px 3px #9fbab63d, inset 0 0 0 1px #ffffff1f, 0 30px 80px #000c;
+  transform: translateZ(9px);
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+.cd-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: linear-gradient(118deg, transparent 6%, #e8fbf72b 7%, transparent 10%, transparent 30%, #ffffff33 32%, transparent 36%, transparent 58%, #cfe9e51f 60%, transparent 66%, transparent 84%, #ffffff17 86%, transparent 90%);
+  box-shadow: inset 0 0 0 4px #a9cfc910;
+  transform: translateZ(11px);
+  pointer-events: none;
+}
+
+.cd-hinge {
+  position: absolute;
+  left: 4px;
+  top: 1.5%;
+  bottom: 1.5%;
+  width: 9px;
+  background: repeating-linear-gradient(0deg, #dff2ef33 0 2px, #0003 2px 4px);
+  border-right: 1px solid #c3dbd759;
+  border-left: 1px solid #ffffff1f;
+  transform: translateZ(10px);
+  pointer-events: none;
+}
+
+@keyframes cdTurn {
+  0%, 100% {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: rotateY(22deg) rotateX(4deg);
+  }
+  75% {
+    transform: rotateY(-22deg) rotateX(4deg);
+  }
+}
+
+@keyframes cdFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-16px);
+  }
+  75% {
+    transform: translateY(13px);
+  }
+}
+
+.cover-slot.ready .cd-turn {
+  animation: cdTurn 18s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.cover-slot.ready .cd-float {
+  animation: cdFloat 8s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.candidate-cover.ready {
+  opacity: 1;
+}
+
+.cover-stage .arrow {
+  border-radius: 50%;
+  width: 43px;
+  height: 43px;
+  padding: 0;
+  font-size: 23px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.cover-stage .arrow svg {
+  width: 21px;
+  height: 21px;
+  display: block;
+}
+
+.cover-stage .arrow:hover {
+  color: #f3e3c4;
+  border-color: #c8b184;
+}
+
+.cover-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: #151616;
+  border: 1px solid #8d754a44;
+  color: #a99b85;
+  font-size: 13px;
+}
+
+.search-overlay[data-state="FOUND"] .cover-slot {
+  width: min(25vh, 240px, 48vw);
+}
+
+.candidate-cover.particle-handoff {
+  transition: opacity 65ms ease-out;
+}
+
+.candidate-cover {
+  transition: opacity 420ms cubic-bezier(.22, .61, .36, 1);
+}

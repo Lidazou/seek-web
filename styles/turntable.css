@@ -1,0 +1,430 @@
+/* ==========================================================================
+ * turntable.css · 3D 唱片机与环绕唱片
+ * --------------------------------------------------------------------------
+ * 放：唱盘 / 唱片 / 唱臂、封面盒（.case / .face / .back / .edge / .glass /
+ *     .hinge）、环绕轨道几何、hover 与选中态。
+ * 说明：这是首页最大的三维构件，单独成文件后 scene.css 只留视口与氛围。
+ * ========================================================================== */
+
+.plane {
+  left: 0;
+  top: 0;
+}
+
+.deck {
+  width: 680px;
+  height: 600px;
+  left: -340px;
+  top: -300px;
+  border-radius: 30px;
+  background: linear-gradient(145deg, #30302e, #121311 35%, #080908 70%, #292822);
+  border: 1px solid #5b574b;
+  box-shadow: inset 0 0 0 8px #151613, inset 0 0 0 9px #3a3932, 0 0 65px #b6964e0a;
+  transform: translate3d(0, 128px, 0) rotateX(90deg);
+}
+
+.deck.layer {
+  background: #0d0e0d;
+  transform: translate3d(0, 160px, 0) rotateX(90deg);
+  border-color: #33312a;
+}
+
+.deck.layer:nth-child(2) {
+  transform: translate3d(0, 152px, 0) rotateX(90deg);
+}
+
+.deck.layer:nth-child(3) {
+  transform: translate3d(0, 144px, 0) rotateX(90deg);
+}
+
+.side {
+  position: absolute;
+  left: -312px;
+  top: 125px;
+  width: 624px;
+  height: 35px;
+  background: linear-gradient(#33322c, #11120f 30%, #080908);
+  border-bottom: 1px solid #6a6149;
+  transform: translateZ(300px);
+  border-radius: 0 0 8px 8px;
+}
+
+.side:after {
+  content: 'O R B I T    /    A N A L O G U E   S Y S T E M';
+  position: absolute;
+  left: 30px;
+  top: 12px;
+  color: #9b9174;
+  font-size: 7px;
+  letter-spacing: 2px;
+}
+
+.platter {
+  position: absolute;
+  width: 556px;
+  height: 556px;
+  border-radius: 50%;
+  left: 32px;
+  top: 22px;
+  background: repeating-radial-gradient(circle, #5a584f 0 1px, #181a17 2px 4px);
+  box-shadow: 0 8px 0 #77715e, 0 13px 0 #181915, 0 18px 22px #000;
+  transform: translateZ(7px);
+}
+
+.record {
+  inset: 8px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, transparent 0 2px, #62615726 2.5px, #020303 3.5px), conic-gradient(from 20deg, #060707, #242722 15%, #050606 29%, #080909 48%, #36382f 63%, #030404 77%, #141512 92%, #060707);
+  box-shadow: inset 0 0 0 2px #090a08;
+}
+
+.label {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  left: 50%;
+  top: 50%;
+  margin: -66px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #191714 0 6%, #aea079 7% 8%, #24211c 9% 13%, #aa9270 14% 15%, #c1ac80 16% 100%);
+  color: #28251d;
+  text-align: center;
+  padding-top: 23px;
+  font-size: 9px;
+  letter-spacing: 3px;
+}
+
+.label b {
+  display: block;
+  font-size: 20px;
+  letter-spacing: 5px;
+  margin-bottom: 43px;
+}
+
+.spindle {
+  position: absolute;
+  left: 306px;
+  top: 294px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(at 20% 20%, #fff, #7e807b 45%, #161813);
+  transform: translateZ(30px);
+  box-shadow: 3px 4px 6px #000;
+}
+
+.arm {
+  right: 45px;
+  top: 48px;
+  width: 48px;
+  height: 48px;
+  background: radial-gradient(circle, #31312c 15%, #989789 19%, #161713 24%, #44443b 55%, #10110e 58%);
+  border-radius: 50%;
+  transform: translateZ(28px);
+}
+
+.arm:before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  width: 12px;
+  height: 265px;
+  background: linear-gradient(90deg, #292c28, #b7b9a9 35%, #676b62 50%, #21251f);
+  transform-origin: 50% 8px;
+  transform: rotate(22deg);
+  border-radius: 7px;
+  box-shadow: 12px 7px 8px #0009;
+}
+
+.arm:after {
+  content: '';
+  position: absolute;
+  left: -73px;
+  top: 249px;
+  width: 27px;
+  height: 46px;
+  background: linear-gradient(90deg, #0a0b09, #4b4a3e, #10120e);
+  transform: rotate(22deg);
+  border: 1px solid #77725c;
+}
+
+.power {
+  position: absolute;
+  right: 40px;
+  bottom: 33px;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #756d57;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 6px #191a15;
+  background: #b8ae85;
+}
+
+.power:after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #d3c89a;
+  box-shadow: 0 0 10px #dcc591;
+  top: 10px;
+  left: -20px;
+}
+
+.speed {
+  position: absolute;
+  left: 47px;
+  bottom: 13px;
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: #7b7767;
+}
+
+.foot {
+  width: 62px;
+  height: 32px;
+  position: absolute;
+  background: linear-gradient(#33332c, #080908);
+  border-radius: 10px;
+  top: 153px;
+  transform: translate3d(-260px, 0, 242px);
+}
+
+.foot.r {
+  transform: translate3d(204px, 0, 242px);
+}
+
+.case {
+  width: 156px;
+  height: 156px;
+  left: -78px;
+  top: -78px;
+  cursor: pointer;
+  outline: none;
+}
+
+.face {
+  inset: 0;
+  border-radius: 3px;
+  border: 1px solid #d9e9e52e;
+  background: linear-gradient(120deg, #d9eeea0d, #ffffff02 35%, #b5d5d30c);
+  box-shadow: inset 1px 1px 1px #ffffff35, inset -1px -1px 1px #9fbab633, 0 8px 15px #0006;
+  transform: translateZ(5px);
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.art {
+  position: absolute;
+  width: 142px;
+  height: 142px;
+  left: 9px;
+  top: 6px;
+  object-fit: cover;
+  border-radius: 1px;
+  filter: saturate(.84);
+}
+
+.glass {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(121deg, transparent 8%, #d7e9e910 9%, transparent 11%, transparent 35%, #fff2 36%, #fff0 39%, transparent 65%, #c1dbd70b 66%);
+  box-shadow: inset 0 0 0 3px #a0c4c407;
+  transform: translateZ(8px);
+  pointer-events: none;
+}
+
+.back {
+  inset: 0;
+  position: absolute;
+  border: 1px solid #a6c4be42;
+  transform: translateZ(-5px) rotateY(180deg);
+  backface-visibility: hidden;
+  background: #141a19ba;
+  border-radius: 3px;
+}
+
+.edge {
+  position: absolute;
+  width: 10px;
+  height: 156px;
+  left: 0;
+  top: 0;
+  transform: translateX(-5px) rotateY(90deg);
+  background: linear-gradient(90deg, #76898466, #ecfff566, #19221f77, #b9dcd56e);
+  border: 1px solid #d7e6df66;
+}
+
+.edge.right {
+  left: 156px;
+}
+
+.edge.top {
+  width: 156px;
+  height: 10px;
+  left: 0;
+  transform: translateY(-5px) rotateX(90deg);
+}
+
+.edge.bottom {
+  width: 156px;
+  height: 10px;
+  left: 0;
+  top: 156px;
+  transform: translateY(-5px) rotateX(90deg);
+}
+
+.hinge {
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 140px;
+  background: repeating-linear-gradient(0deg, #d8ecea26 0 1px, #0002 1px 3px);
+  transform: translateZ(7px);
+  border-right: 1px solid #b6cfcb44;
+}
+
+.case:focus-visible .face {
+  border-color: #dfc78b;
+}
+
+.floor {
+  position: absolute;
+  width: 920px;
+  height: 920px;
+  left: -460px;
+  top: -460px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #9682560b, transparent 65%);
+  transform: translateY(180px) rotateX(90deg);
+  pointer-events: none;
+}
+
+.orbit-line {
+  position: absolute;
+  width: 880px;
+  height: 880px;
+  left: -440px;
+  top: -440px;
+  border-radius: 50%;
+  border: 1px solid #b8a47716;
+  transform: translateY(110px) rotateX(90deg);
+  pointer-events: none;
+}
+
+.hud {
+  position: fixed;
+  bottom: 30px;
+  left: 42px;
+  right: 42px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  z-index: 20;
+  pointer-events: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #77756e;
+}
+
+.dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b7aa87;
+  margin-right: 10px;
+  box-shadow: 0 0 12px #b7aa8755;
+}
+
+.hint {
+  line-height: 2;
+  text-align: right;
+}
+
+.info {
+  position: fixed;
+  z-index: 25;
+  bottom: 82px;
+  left: 50%;
+  width: 360px;
+  max-width: 85vw;
+  transform: translate(-50%, 12px);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s, transform .35s;
+  text-shadow: 0 2px 18px #000, 0 2px 8px #000;
+  background: radial-gradient(ellipse, #000c, transparent 70%);
+  padding: 18px;
+}
+
+.info.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.info small {
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: #b4a588;
+}
+
+.info h2 {
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  margin: 10px 0;
+}
+
+.info p {
+  color: #b3b0a7;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin: 8px;
+}
+
+#progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: #b6a078;
+  width: 0;
+  box-shadow: 0 0 9px #bea577;
+  transition: opacity 1s;
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, #76634530 0%, #33374126 27%, #10172018 52%, transparent 76%), #020304;
+}
+
+.atmosphere:before {
+  content: '';
+  position: absolute;
+  width: 75vw;
+  height: 90vh;
+  left: 12.5vw;
+  top: 0;
+  background: radial-gradient(ellipse at 50% 48%, #c2ab7020, transparent 62%);
+  filter: blur(40px);
+}
+
+/* ========================================================================== */
+/* 星空 · 深空画布与星尘 */
+/* ========================================================================== */
+#deepsky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 3s ease .15s;
+}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ORBIT — 浮游唱片档案</title>
+
+  <!--
+  ============================================================================
+  SEEK 前端 · Seek 音乐检索（Vanilla HTML + CSS + ES Modules）
+  ----------------------------------------------------------------------------
+  本文件只负责「页面结构」。样式在 styles/，逻辑在 js/，配置在 config/。
+  修改指引：
+    · 改结构 / 增删 DOM       → 本文件
+    · 改视觉                  → styles/ 下对应组件文件
+    · 改搜索流程              → js/search/search-controller.js
+    · 改后端协议 / 字段映射   → js/search/seek-api.js + candidate-mapper.js
+    · 改演示数据              → js/demo/
+    · 改接口地址 / 超时       → config/seek-config.js
+  样式加载顺序即层叠顺序，不要随意调换（responsive.css 必须最后）。
+  ============================================================================
+  -->
+
+  <link rel="stylesheet" href="./styles/base.css">
+  <link rel="stylesheet" href="./styles/scene.css">
+  <link rel="stylesheet" href="./styles/turntable.css">
+  <link rel="stylesheet" href="./styles/neon.css">
+  <link rel="stylesheet" href="./styles/library.css">
+  <link rel="stylesheet" href="./styles/search.css">
+  <link rel="stylesheet" href="./styles/search-states.css">
+  <link rel="stylesheet" href="./styles/cd-case.css">
+  <link rel="stylesheet" href="./styles/responsive.css">
+</head>
+<body>
+<!-- ============================================================================ -->
+  	<!-- 界面骨架 · 角标 / 标题 / 视距工具 -->
+  	<!-- ============================================================================ -->
+  	<div class="corner corner-tl" aria-hidden="true">
+  		<div class="corner-brand">SEEK
+  		</div>
+  		<div class="corner-tag">AI MUSIC RETRIEVAL
+  		</div>
+  	</div>
+  	<div class="corner corner-tr" aria-hidden="true">
+  		<div class="corner-line">FROM VAGUE MEMORY,
+  			<br>FIND YOUR MUSIC
+  		</div>
+  		<div class="corner-tag">COVER · GENRE · ERA · MEMORY
+  		</div>
+  	</div>
+  	<div class="atmosphere" aria-hidden="true">
+  		<canvas id="deepsky">
+  		</canvas>
+  		<div id="stardust">
+  		</div>
+  	</div>
+  	<header>
+  		<div class="eyebrow">THE LISTENING ROOM
+  		</div>
+  		<h1>ORBIT / 01
+  		</h1>
+  		<p>一张唱片，一段悬浮的记忆。
+  		</p>
+  	</header>
+  	<section class="about">
+  		<div class="about-title">SEEK <b>·</b> <span class="seek-cn">寻音</span>
+  		</div>
+  		<div class="about-sub">用模糊的记忆，找回那首歌
+  		</div>
+  		<p class="about-desc">一款通过封面、曲风、年代等模糊印象找回音乐的 AI 工具。
+  		</p>
+  	</section>
+  	<nav class="toolbar">
+  		<label class="zoom-control">视距
+  			<input id="zoom" type="range" min="90" max="135" value="135" aria-label="场景放大比例"><output id="zoom-value">135%</output>
+  		</label>
+  		<button id="replay">重播入场 ↗
+  		</button>
+  		<button id="pause" aria-pressed="false">暂停运动 Ⅱ
+  		</button>
+  	</nav>
+  
+  	<!-- ============================================================================ -->
+  	<!-- 3D 场景 · 唱片机 / 星空 / 霓虹灯牌 -->
+  	<!-- ============================================================================ -->
+  	<main class="viewport" aria-label="3D 专辑收藏，使用 Tab 浏览专辑">
+  		<div class="fit">
+  			<div class="world">
+  				<div class="floor">
+  				</div>
+  				<div class="orbit-line">
+  				</div>
+  				<div class="foot">
+  				</div>
+  				<div class="foot r">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="side">
+  				</div>
+  				<div class="deck">
+  					<div class="platter">
+  						<div class="record">
+  							<div class="label"><b>ORBIT</b>33⅓ • STEREO
+  							</div>
+  						</div>
+  					</div>
+  					<div class="spindle">
+  					</div>
+  					<div class="arm">
+  					</div>
+  					<div class="power">
+  					</div>
+  					<div class="speed">DIRECT DRIVE / 33⅓
+  					</div>
+  				</div>
+  				<div id="albums" class="object">
+  				</div>
+  				<div class="neon" aria-hidden="true">
+  					<div class="neon-aura">
+  					</div>
+  					<div class="neon-pool">
+  					</div>
+  					<div class="neon-spin">
+  						<div class="neon-body" data-thickness-mm="30" data-model="extruded-acrylic-neon">
+  							<div class="neon-model">
+  								<div class="sign-plate plate-back">
+  								</div>
+  								<div class="sign-plate plate-front">
+  								</div><i class="sign-rim" style="width:4.513px;transform:translate3d(646.000px,0.000px,0) rotateZ(5.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(650.292px,0.423px,0) rotateZ(16.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(654.419px,1.675px,0) rotateZ(28.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(658.223px,3.708px,0) rotateZ(39.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(661.556px,6.444px,0) rotateZ(50.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(664.292px,9.777px,0) rotateZ(61.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(666.325px,13.581px,0) rotateZ(73.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(667.577px,17.708px,0) rotateZ(84.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:210.200px;transform:translate3d(668.000px,22.000px,0) rotateZ(90.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(668.000px,232.000px,0) rotateZ(95.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(667.577px,236.292px,0) rotateZ(106.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(666.325px,240.419px,0) rotateZ(118.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(664.292px,244.223px,0) rotateZ(129.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(661.556px,247.556px,0) rotateZ(140.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(658.223px,250.292px,0) rotateZ(151.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(654.419px,252.325px,0) rotateZ(163.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(650.292px,253.577px,0) rotateZ(174.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:624.200px;transform:translate3d(646.000px,254.000px,0) rotateZ(180.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(22.000px,254.000px,0) rotateZ(-174.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(17.708px,253.577px,0) rotateZ(-163.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(13.581px,252.325px,0) rotateZ(-151.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(9.777px,250.292px,0) rotateZ(-140.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(6.444px,247.556px,0) rotateZ(-129.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(3.708px,244.223px,0) rotateZ(-118.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(1.675px,240.419px,0) rotateZ(-106.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.423px,236.292px,0) rotateZ(-95.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:210.200px;transform:translate3d(0.000px,232.000px,0) rotateZ(-90.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.000px,22.000px,0) rotateZ(-84.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.423px,17.708px,0) rotateZ(-73.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(1.675px,13.581px,0) rotateZ(-61.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(3.708px,9.777px,0) rotateZ(-50.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(6.444px,6.444px,0) rotateZ(-39.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(9.777px,3.708px,0) rotateZ(-28.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(13.581px,1.675px,0) rotateZ(-16.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(17.708px,0.423px,0) rotateZ(-5.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:624.200px;transform:translate3d(22.000px,0.000px,0) rotateZ(0.000deg) rotateX(90deg)"></i>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(-14px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(-7px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(0px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(7px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(14px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<div class="neon-face nf-front">
+  									<svg class="neon-svg" viewBox="0 0 1280 486" xmlns="http://www.w3.org/2000/svg" aria-label="SEEK 霓虹灯牌"> <path class="n-tube-shadow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-shadow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-halo" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-halo" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-glow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-glow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-core" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-core" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <g fill="#b6a38a" fill-opacity=".22" stroke="#a08d76" stroke-opacity=".32" stroke-width="2"> <rect x="308" y="97" width="12" height="64" rx="4"/> <rect x="126" y="178" width="13" height="56" rx="4"/> <rect x="232" y="333" width="14" height="57" rx="4"/> <rect x="396" y="198" width="53" height="12" rx="4"/> <rect x="560" y="334" width="13" height="57" rx="4"/> <rect x="800" y="103" width="14" height="57" rx="4"/> <rect x="645" y="198" width="53" height="12" rx="4"/> <rect x="1067" y="97" width="13" height="49" rx="4" transform="rotate(43 1073 122)"/> </g></svg>
+  								</div>
+  								<div class="neon-face nf-back">
+  									<svg class="neon-svg" viewBox="0 0 1280 486" xmlns="http://www.w3.org/2000/svg" aria-label="SEEK 霓虹灯牌"> <path class="n-tube-shadow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-shadow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-halo" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-halo" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-glow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-glow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-core" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-core" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <g fill="#b6a38a" fill-opacity=".22" stroke="#a08d76" stroke-opacity=".32" stroke-width="2"> <rect x="308" y="97" width="12" height="64" rx="4"/> <rect x="126" y="178" width="13" height="56" rx="4"/> <rect x="232" y="333" width="14" height="57" rx="4"/> <rect x="396" y="198" width="53" height="12" rx="4"/> <rect x="560" y="334" width="13" height="57" rx="4"/> <rect x="800" y="103" width="14" height="57" rx="4"/> <rect x="645" y="198" width="53" height="12" rx="4"/> <rect x="1067" y="97" width="13" height="49" rx="4" transform="rotate(43 1073 122)"/> </g></svg>
+  								</div><i class="sign-fastener" style="left:11px;top:14px"></i><i class="sign-fastener" style="left:647px;top:14px"></i><i class="sign-fastener" style="left:11px;top:232px"></i><i class="sign-fastener" style="left:647px;top:232px"></i>
+  							</div>
+  						</div>
+  					</div>
+  				</div>
+  			</div>
+  		</div>
+  	</main>
+  	<section class="info" aria-live="polite"><small id="meta"></small>
+  		<h2 id="title">
+  		</h2>
+  		<p id="artist">
+  		</p>
+  	</section>
+  	<footer class="hud">
+  		<div><span class="dot"></span><span id="status">ASSEMBLING THE COLLECTION</span>
+  		</div>
+  		<div class="hint">靠近减速 · 悬停展开
+  			<br>移开归位 / 触屏轻点查看
+  		</div>
+  	</footer>
+  	<div id="progress">
+  	</div>
+  <!-- ============================================================================ -->
+  <!-- 首页按钮 · 进入搜索 / 编辑CD集 -->
+  <!-- ============================================================================ -->
+  <button class="orbit-entry" data-testid="launch-search" id="orbit-search">点击 SEEK，开始寻找 ↗</button>
+  <button class="orbit-entry secondary" data-testid="open-cd-editor" id="custom-entry">编辑CD集</button>
+  
+  <!-- ============================================================================ -->
+  <!-- 编辑界面 · 编辑CD集 + 单张唱片弹窗 -->
+  <!-- ============================================================================ -->
+  <section class="cd-editor" id="cd-editor" hidden>
+   <header class="cd-editor-head"><h2>编辑CD集</h2></header>
+   <p class="cd-editor-hint">按住封面拖动排序</p>
+   <div class="cd-grid" data-testid="cd-grid" id="cd-grid"></div>
+   <footer class="cd-editor-foot"><button class="cd-glass-btn primary" data-testid="cd-add" id="cd-add">＋ 添加唱片</button><button class="cd-glass-btn" data-testid="close-cd-editor" id="cd-done">完成</button></footer>
+  </section>
+  <div class="cd-modal-backdrop" data-testid="cd-modal" id="cd-modal" hidden>
+   <div class="cd-modal-card" role="dialog" aria-modal="true" aria-label="编辑唱片详情">
+    <button class="cd-modal-close" id="cd-modal-close" aria-label="关闭">×</button>
+    <h3 id="cd-modal-title">编辑唱片</h3>
+    <label for="cd-f-title">专辑名</label><input id="cd-f-title" type="text" maxlength="120">
+    <label for="cd-f-artist">艺人 / 乐队</label><input id="cd-f-artist" type="text" maxlength="120">
+    <label for="cd-f-cover">封面图片地址（留空则自动生成）</label><input id="cd-f-cover" type="text" placeholder="https://…/cover.jpg 或 data:image/…">
+    <label for="cd-f-year">年份</label><input id="cd-f-year" type="text" maxlength="12">
+    <label for="cd-f-genre">曲风</label><input id="cd-f-genre" type="text" maxlength="60">
+    <p id="cd-modal-notice" role="status"></p>
+    <div class="state-actions"><button class="primary" id="cd-save">保存</button><button id="cd-delete">删除这张唱片</button></div>
+   </div>
+  </div>
+  
+  <!-- ============================================================================ -->
+  <!-- 搜索界面 · 粒子画布 + 搜索层 -->
+  <!-- ============================================================================ -->
+  <canvas id="search-particles" aria-hidden="true"></canvas>
+  <section class="search-overlay" id="search-overlay" role="dialog" aria-modal="true" aria-label="从记忆寻找音乐" data-state="ORBIT" hidden>
+   <div class="compose-scrim" aria-hidden="true"></div>
+   <header class="search-header">
+    <aside class="memory-anchor" id="memory-anchor" hidden><small>YOUR MEMORY</small><p id="memory-text"></p><span class="memory-count" id="memory-count"></span><ol class="memory-additions" id="memory-additions" aria-label="补充的记忆" aria-live="polite" hidden></ol><button class="text-button" id="edit-memory">编辑</button></aside>
+    <div class="search-header-actions"><button class="text-button" id="service-button">连接搜索服务</button><button data-testid="close-search" id="close-search" aria-label="关闭搜索，返回唱片机">返回唱片机 ×</button></div>
+   </header>
+   <form class="composer" id="query-composer" novalidate><h2 class="search-heading">你还记得什么？</h2><div class="glass-sheet"><label class="sr-only" for="query-input">描述你对歌曲或专辑的记忆</label><textarea data-testid="search-input" id="query-input" maxlength="2000" placeholder="日语歌，封面好像有很多黑色的鞋" required></textarea><button type="button" class="example-roller" data-testid="example-roller" id="example-roller" aria-label="示例描述，点击即可一键录入并开始寻找"><span class="example-roller-label">试试这些</span><span class="example-roller-text" id="example-roller-text">日语歌，封面好像有很多黑色的鞋</span><span class="example-roller-arrow">↗</span></button><div class="composer-footer"><small>记错也没关系。</small><button class="primary" data-testid="submit-search" id="submit-search" type="submit">开始寻找 →</button></div></div><p class="live-notice" id="composer-notice"></p></form>
+   <div class="search-status" id="search-status" hidden><h2 class="search-heading"><span class="status-light"></span><span id="status-title">正在从这些记忆里寻找……</span></h2><p id="status-detail"></p></div>
+   <section class="viewer" id="candidate-viewer" hidden>
+    <div class="cover-stage" id="cover-stage"><button class="arrow" data-testid="previous-candidate" id="previous-candidate" aria-label="上一张候选"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5 7 12l7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="cover-slot" id="cover-slot"><div class="cd-float"><div class="cd-turn"><div class="cd-case"><div class="cd-back"></div><div class="cd-edge cd-edge-l"></div><div class="cd-edge cd-edge-r"></div><div class="cd-edge cd-edge-t"></div><div class="cd-edge cd-edge-b"></div><img class="candidate-cover" data-testid="candidate-cover" id="candidate-cover" alt=""><div class="cd-frame"></div><div class="cd-glass"></div><div class="cd-hinge"></div></div></div></div><div class="cover-error" id="cover-error" hidden>封面暂时无法加载</div></div><button class="arrow" data-testid="next-candidate" id="next-candidate" aria-label="下一张候选"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5 17 12l-7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+    <div class="candidate-copy"><h2 data-testid="candidate-title" id="candidate-title"></h2><p class="artist" id="candidate-artist"></p><p class="year-genre" id="candidate-meta"></p><div class="candidate-reasons" id="candidate-reasons"></div></div>
+    <div class="candidate-actions" id="candidate-actions"><button class="primary" data-testid="accept-candidate" id="accept-candidate">就是它</button><button data-testid="reject-candidate" id="reject-candidate">不是这张</button><button id="reject-all">这些都不像</button><button data-testid="favorite-candidate" id="favorite-candidate" title="收藏到主页唱片机">★ 收藏</button></div>
+    <div class="candidate-position" id="candidate-position"><span id="candidate-count"></span><button class="text-button" data-testid="show-overview" id="show-overview">查看全部候选</button></div>
+    <section id="found-details" hidden><p class="found-meta" id="found-meta"></p><ol class="track-list" id="track-list"></ol><p class="live-notice" id="track-notice"></p><div class="state-actions"><button class="primary" id="found-song">找到那首歌了</button><button id="album-only">专辑对了，但歌曲还没找到</button><button id="favorite-found">★ 收藏到唱片机</button><button class="text-button" id="back-candidates">返回候选</button></div></section>
+   </section>
+   <section class="state-card" id="question-card" hidden><h2 class="search-heading" id="question-text"></h2><p id="question-note"></p><div class="question-choices" id="question-choices"><button data-answer="yes">有</button><button data-answer="no">没有</button><button data-answer="unknown">不确定</button></div></section>
+   <section class="state-card" id="empty-card" hidden><h2 class="search-heading">这些记忆还没有拼出答案。</h2><p>也可能不是你记错了，而是我们还没有收录它。</p><div class="state-actions"><button id="empty-add" class="primary">再告诉我一点</button><button id="relax-query">放宽部分线索</button><button id="rewrite-query">重新描述</button></div></section>
+   <section class="state-card" id="error-card" hidden><h2 class="search-heading" id="error-title"></h2><p id="error-message"></p><div class="state-actions"><button class="primary" data-testid="retry-search" id="retry-search">重试</button><button id="error-service">连接搜索服务</button><button id="error-edit">编辑记忆</button></div></section>
+   <section class="overview" id="candidate-overview" hidden><div class="overview-title"><h2 class="search-heading">可能的唱片</h2><button id="close-overview">返回单张</button></div><div class="overview-grid" id="overview-grid"></div></section>
+   <footer class="search-bottom" id="search-bottom" hidden><p class="live-notice" id="session-notice" role="status"></p><button class="text-button" id="add-memory">＋ 再补充一点记忆</button><form class="supplement" id="supplement-form" hidden><span class="supplement-hint">输入更多记忆</span><label for="supplement-input">还有什么细节？</label><div class="supplement-row"><input id="supplement-input" maxlength="500" autocomplete="off" required placeholder="我突然想起来，好像不是一双鞋，是很多双。"><button type="submit" class="primary">加入记忆 →</button></div></form></footer>
+   <form class="settings" id="service-settings" hidden><h3>连接你的搜索服务</h3><label for="endpoint-input">搜索接口地址</label><input id="endpoint-input" type="url" placeholder="https://你的服务/search" required><p>此页面不会生成搜索候选。连接后，你提交的记忆将发送到这个地址，由服务返回专辑与解释。</p><p id="service-notice" role="status"></p><div class="state-actions"><button class="primary" type="submit">保存连接</button><button type="button" id="close-settings">取消</button></div></form>
+   <div id="search-announcement" class="sr-only" role="status" aria-live="polite"></div>
+  </section>
+  
+  <!-- ============================================================================ -->
+  <!-- 灯光 · 搜索态光锥 -->
+  <!-- ============================================================================ -->
+  <div class="search-lamp" aria-hidden="true"></div>
+
+  <!-- 唯一入口：ES Module。所有模块依赖都从这里开始装配 -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

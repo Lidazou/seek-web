@@ -1,0 +1,491 @@
+/* ==========================================================================
+ * search.css · 搜索 Overlay（容器 / 记忆栏 / 输入区 / 状态 / 候选展示）
+ * --------------------------------------------------------------------------
+ * 目录：
+ *   1. 容器与按钮         .search-overlay
+ *   2. 头部               .search-header
+ *   3. 记忆栏             .memory-anchor / .memory-additions
+ *   4. 输入区玻璃板       .composer / .glass-sheet / .example-roller
+ *   5. 搜索状态           .search-status / .status-light
+ *   6. 候选展示           .viewer / .candidate-copy / .candidate-reasons
+ * 追问、空态、错误、总览、曲目、设置见 search-states.css；
+ * 封面 3D 盒见 cd-case.css。
+ * ========================================================================== */
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.search-overlay button, .search-overlay input, .search-overlay textarea {
+  font: inherit;
+}
+
+.search-overlay button {
+  border: 1px solid #af966248;
+  border-radius: 28px;
+  background: #18191ac4;
+  color: #dfd2b9;
+  padding: 10px 19px;
+  transition: background .2s, border-color .2s;
+}
+
+.search-overlay button:hover:not(:disabled) {
+  background: #473322b0;
+  border-color: #d4ae77;
+}
+
+.search-overlay button:focus-visible, .search-overlay textarea:focus-visible, .search-overlay input:focus-visible {
+  outline: 2px solid #e6be82;
+  outline-offset: 4px;
+}
+
+.search-overlay button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.search-overlay .primary {
+  background: #d7bb8c;
+  color: #21180f;
+  border-color: #d7bb8c;
+}
+
+.search-overlay .text-button {
+  border: none;
+  background: transparent;
+  color: #b4a791;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.search-header {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+  padding: 28px 36px;
+  pointer-events: none;
+  background: linear-gradient(#0607089c, transparent);
+}
+
+.search-header>* {
+  pointer-events: auto;
+}
+
+.search-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 记忆栏 */
+/* ========================================================================== */
+.memory-anchor {
+  max-width: min(560px, 44vw);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.memory-anchor small {
+  font-size: 10px;
+  color: #9b8b70;
+  letter-spacing: 4px;
+}
+
+/* The remembered line reads like a short poem. */
+.memory-anchor p {
+  margin: 12px 0 0;
+  max-height: clamp(150px, 26vh, 260px);
+  overflow: auto;
+  white-space: pre-wrap;
+  text-align: left;
+  color: #e0d4bc;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-size: clamp(26px, 2.2vw, 36px);
+  line-height: 1.85;
+  letter-spacing: 2px;
+  border-left: 1px solid #b8a77d4d;
+  padding-left: 18px;
+  text-wrap: pretty;
+}
+
+.memory-anchor .memory-count {
+  display: block;
+  margin-top: 12px;
+  color: #8b8274;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+.memory-anchor .text-button {
+  margin-top: 10px;
+}
+
+.search-heading {
+  font: 400 32px "Noto Serif SC", "STSong", "SimSun", serif;
+  letter-spacing: 3px;
+  line-height: 1.55;
+  margin: 0 0 23px;
+}
+
+/* First entry: the prompt sits two centimetres under the lowered sign.
+   The sign's glyphs end at ~14.8vh in the search position at every window size. */
+
+/* ========================================================================== */
+/* 搜索界面 · 输入框 */
+/* ========================================================================== */
+.composer {
+  width: min(660px, calc(100% - 44px));
+  margin: calc(14.8vh + 76px) auto 50px;
+  text-align: center;
+  animation: search-in .5s ease;
+}
+
+.glass-sheet {
+  position: relative;
+  padding: 25px 24px 22px;
+  border-radius: 30px;
+  background: radial-gradient(ellipse at 50% 30%, #d0c0a70b, #a8b8bb04 75%);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #d6d9ce1c;
+  border-bottom: 1px solid #c6ae8320;
+  box-shadow: 0 25px 80px #0004;
+}
+
+/* Glass block catching light along its bottom edge. */
+.glass-sheet:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 54%;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(0deg, rgba(255, 192, 134, .14), rgba(255, 198, 142, .05) 44%, transparent);
+}
+
+.glass-sheet:after {
+  content: '';
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 212, 162, .5) 16%, rgba(255, 234, 202, .82) 50%, rgba(255, 212, 162, .5) 84%, transparent);
+  box-shadow: 0 -9px 28px rgba(255, 186, 124, .3), 0 0 20px rgba(255, 196, 138, .24);
+}
+
+/* The reflection along the bottom edge comes up last, at the end of the sweep. */
+body.search-active .glass-sheet:before {
+  animation: edgeOn .5s cubic-bezier(.22, .61, .36, 1) .88s forwards;
+}
+
+body.search-active .glass-sheet:after {
+  animation: edgeOn .46s cubic-bezier(.22, .61, .36, 1) .96s forwards;
+}
+
+@keyframes edgeOn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.composer textarea {
+  resize: none;
+  width: 100%;
+  height: 120px;
+  line-height: 1.8;
+  font-size: 19px;
+  border: 0;
+  border-bottom: 1px solid #bfa47430;
+  background: transparent;
+  color: #ede1ca;
+  padding: 12px;
+  outline: none;
+}
+
+.composer textarea::placeholder {
+  color: #9b9286;
+  font-size: 16px;
+}
+
+.composer-footer {
+  margin-top: 23px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.composer-footer small {
+  font-size: 12px;
+  color: #a89980;
+}
+
+/* 示例提示：在搜索框内滚动轮播，找到贴近自己记忆的那句，点一下就直接开始寻找 */
+.example-roller {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 9px 18px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid #b2966533;
+  background: linear-gradient(180deg, #ffffff0a, #ffffff03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #bfae92;
+  font-size: 13px;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease;
+}
+
+.example-roller:hover {
+  border-color: #d8b789;
+  color: #f0e0c2;
+}
+
+.example-roller-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #8f8677;
+}
+
+.example-roller-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity .34s ease, transform .34s ease;
+}
+
+.example-roller-text.is-rolling {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.example-roller-arrow {
+  flex: 0 0 auto;
+  color: #8f8677;
+}
+
+.search-status {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: min(630px, 85vw);
+}
+
+.search-status p {
+  color: #aaa090;
+  line-height: 1.8;
+  font-size: 13px;
+}
+
+.status-light {
+  width: 5px;
+  height: 5px;
+  background: #e9c792;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 12px;
+  box-shadow: 0 0 16px #ffd291;
+}
+
+.viewer {
+  width: min(850px, 100%);
+  margin: calc(clamp(104px, 16vh, 190px) + 114px) auto 25px;
+  text-align: center;
+  padding: 0 22px;
+}
+
+.candidate-copy {
+  margin: 15px auto 0;
+  min-height: 120px;
+  max-width: 640px;
+}
+
+.candidate-copy h2 {
+  font: 400 25px "Noto Serif SC", "STSong", serif;
+  letter-spacing: 2px;
+  margin: 0 0 6px;
+}
+
+.candidate-copy .artist {
+  color: #b4a994;
+  font-size: 13px;
+  margin: 4px;
+}
+
+.candidate-copy .year-genre {
+  font-size: 10px;
+  color: #847e72;
+  letter-spacing: 2px;
+}
+
+.candidate-reasons {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  text-align: left;
+  margin: 14px auto;
+  font-size: 12px;
+  color: #bcb3a1;
+  line-height: 1.6;
+}
+
+.candidate-reasons div {
+  max-width: 290px;
+}
+
+.candidate-reasons b {
+  color: #bba17b;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+
+.candidate-reasons p {
+  margin: 4px 0;
+}
+
+.candidate-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.candidate-actions button {
+  font-size: 12px;
+}
+
+.candidate-position {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  color: #958872;
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin: 12px;
+}
+
+body.memory-compose.search-active .atmosphere {
+  filter: brightness(.42) blur(9px)!important;
+}
+
+.search-overlay.composer.jitter {
+  animation: composerShake .22s ease-in-out;
+}
+
+@keyframes composerShake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  22% {
+    transform: translate(-1.6px, 1px) rotate(-.16deg);
+  }
+  55% {
+    transform: translate(1.4px, -1.2px) rotate(.14deg);
+  }
+  80% {
+    transform: translate(-.8px, .6px) rotate(-.07deg);
+  }
+}
+
+@keyframes search-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Keep the live neon badge above, rather than behind, the reading surface. */
+.search-header {
+  left: 0;
+}
+
+.search-header-actions {
+  margin-left: auto;
+}
+
+.search-overlay .search-heading {
+  color: #ede4d1;
+}
+
+.search-overlay .composer-footer small {
+  color: #b9aa91;
+}
+
+.search-overlay .text-button {
+  color: #bfb198;
+}
+
+.composer textarea:focus-visible {
+  outline: none;
+  border-bottom-color: #d5b784;
+  box-shadow: 0 1px 0 #d5b784;
+}
+
+.search-overlay .composer textarea {
+  border-radius: 0;
+}
+
+.memory-additions {
+  list-style: none;
+  padding: 0 0 0 18px;
+  margin: 2px 0 0;
+  border-left: 1px solid #b8a77d4d;
+  max-height: 34vh;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #9b845855 transparent;
+}
+
+.memory-additions li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 18px 0 0;
+  color: #c9bda4;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-size: clamp(26px, 2.2vw, 36px);
+  line-height: 1.85;
+  letter-spacing: 2px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.memory-anchor p.is-empty {
+  color: #8b8375;
+}

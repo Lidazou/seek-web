@@ -1,0 +1,119 @@
+/* ==========================================================================
+ * base.css · 基础层
+ * --------------------------------------------------------------------------
+ * 放：reset、html/body、button/input/textarea、排版、无障碍辅助类（.sr-only）、
+ *     全局 CSS 变量与动效时长变量。
+ * 不放：任何具体组件样式（场景 / 搜索 / 收藏各有自己的文件）。
+ * ========================================================================== */
+
+:root {
+  /* 底色与文字 */
+  --seek-bg: #020304;
+  --seek-text: #ede4d1;
+  --seek-muted: #9b9286;
+  --seek-gold: #b8a77d;
+  --seek-gold-soft: #d8b789;
+
+  /* 圆角 */
+  --seek-radius-sm: 8px;
+  --seek-radius-md: 16px;
+  --seek-radius-lg: 30px;
+
+  /* 动效时长：普通 UI 交互只用 fast/normal，粒子 morph 才用 slow */
+  --seek-fast: 180ms;
+  --seek-normal: 320ms;
+  --seek-slow: 620ms;
+}
+
+/* ========================================================================== */
+/* 基础 · 重置与全局 */
+/* ========================================================================== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #eee;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+header {
+  position: fixed;
+  z-index: 20;
+  top: 36px;
+  left: 42px;
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 5px;
+  color: #a99a7c;
+}
+
+h1 {
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 9px;
+  margin: 12px 0;
+}
+
+header p {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #676767;
+}
+
+.toolbar {
+  position: fixed;
+  right: 40px;
+  top: 38px;
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar button {
+  background: #0c0c0c;
+  border: 1px solid #292724;
+  border-radius: 30px;
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.toolbar button:hover, .toolbar button:focus-visible {
+  border-color: #b7a77d;
+  outline: none;
+}
+
+/* ========================================================================== */
+/* 3D 场景 · 视口与世界 */
+/* ========================================================================== */
+.viewport {
+  position: absolute;
+  inset: 0;
+  perspective: 1500px;
+  perspective-origin: 50% 48%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

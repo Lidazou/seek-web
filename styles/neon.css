@@ -1,0 +1,512 @@
+/* ==========================================================================
+ * neon.css · SEEK 霓虹灯牌
+ * --------------------------------------------------------------------------
+ * 单独成文件的原因：SEEK 是核心交互入口（点击进入搜索），搜索态下它的位移、
+ * 点亮与光锥逻辑与场景其余部分无关。
+ * 放：.neon / .neon-spin / .neon-body、SEEK SVG、光晕 halo / aura / pool、
+ *     搜索态位移、.search-lamp 光锥、灯牌相关 keyframes。
+ * ========================================================================== */
+
+/* ========================================================================== */
+/* 霓虹灯牌 · SEEK */
+/* ========================================================================== */
+.neon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate3d(-26px, 0, 0);
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.neon-spin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+  animation: neonSpin 16s linear infinite;
+}
+
+.neon-body {
+  position: absolute;
+  left: -334px;
+  top: -127px;
+  width: 668px;
+  height: 254px;
+  transform-style: preserve-3d;
+  animation: neonBob 3.8s ease-in-out infinite;
+}
+
+.neon-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+}
+
+.neon-face.nf-front {
+  transform: translateZ(15px);
+}
+
+.neon-face.nf-back {
+  transform: translateZ(-15px) rotateY(180deg);
+}
+
+.neon-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.n-halo {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #ff8c28;
+  stroke-width: 48;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 1.3s ease;
+}
+
+.neon.on .n-halo {
+  opacity: .28;
+}
+
+.n-glow {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #33261a;
+  stroke-width: 21;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 1.3s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon.on .n-glow {
+  stroke: #ffb35c;
+}
+
+.n-core {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #5f4f3f;
+  stroke-width: 8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 1.3s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon.on .n-core {
+  stroke: #fff2d9;
+}
+
+.neon-aura {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 900px;
+  height: 230px;
+  margin: -115px 0 0 -450px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 150, 50, .30) 0%, rgba(255, 120, 30, .14) 40%, transparent 72%);
+  opacity: 0;
+  transition: opacity 1.3s ease;
+  animation: auraPulse 3.8s ease-in-out infinite;
+}
+
+.neon.on .neon-aura {
+  opacity: 1;
+}
+
+.neon-pool {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 980px;
+  height: 980px;
+  margin: -490px 0 0 -490px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 158, 74, .30) 0%, rgba(255, 132, 44, .15) 34%, rgba(255, 110, 30, .045) 58%, transparent 74%);
+  transform: translate3d(0, 116px, 0) rotateX(90deg);
+  opacity: 0;
+  transition: opacity 1.3s ease;
+}
+
+.neon.on .neon-pool {
+  opacity: 1;
+}
+
+@keyframes neonSpin {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes neonBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes auraPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* Replacement SEEK object only: original animation and lighting rules above are retained. */
+.neon-face.nf-front {
+  transform: translateZ(15px);
+}
+
+.neon-face.nf-back {
+  transform: translateZ(-15px) rotateY(180deg);
+}
+
+.sign-plate {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  border: 1px solid #b688665c;
+  background: linear-gradient(118deg, #9e795d12, #6f4a3110 38%, #30271d0d 65%, #bb9b771a);
+  box-shadow: inset 0 0 0 2px #11171355, inset 1px 1px 1px #e9d9bd4a;
+  backface-visibility: visible;
+}
+
+.plate-front {
+  transform: translateZ(13px);
+}
+
+.plate-back {
+  transform: translateZ(-13px);
+}
+
+.sign-rim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 30px;
+  margin-top: -15px;
+  transform-origin: 0 50%;
+  background: linear-gradient(0deg, #36281c88, #b8997966 15%, #69554455 40%, #201b1766 65%, #d5b18b88);
+  border-top: 1px solid #b3937038;
+  border-bottom: 1px solid #c3a98844;
+}
+
+.tube-volume {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.n-tube-wall {
+  fill: none;
+  stroke: #5d351f;
+  stroke-width: 25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.n-tube-shadow {
+  fill: none;
+  stroke: #261b15;
+  stroke-width: 30;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.sign-fastener {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  transform: translateZ(15px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 25%, #b6a58d, #5d554a 32%, #11120f 42%, #211f1b 70%, #776c5b 73%, #262620);
+  box-shadow: 1px 2px 2px #0009;
+}
+
+.sign-fastener:after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: 4px;
+  height: 1px;
+  background: #15130f;
+  transform: rotate(-35deg);
+}
+
+/* Acrylic enclosure removed: only the neon tube lettering is kept. */
+.sign-plate, .sign-rim, .sign-fastener, .neon-svg>g {
+  display: none!important;
+}
+
+/* Width/height are 4/3 of the previous half-size model. The animation wrapper and 30 mm depth retain scene scale. */
+.neon-model {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: scale3d(.666666667, .666666667, 1);
+  transform-origin: 50% 50%;
+}
+
+/* Editorial Chinese serif typography; all fonts resolve locally/offline. */
+.seek-cn, .about-sub, .about-desc {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.seek-cn {
+  letter-spacing: 10px;
+}
+
+.about-sub {
+  letter-spacing: 3px;
+}
+
+.about-desc {
+  letter-spacing: 1.2px;
+}
+
+/* Search layer: the existing 3D scene remains mounted throughout the session. */
+[hidden] {
+  display: none!important;
+}
+
+.neon-body {
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.neon-body:focus-visible {
+  outline: 2px solid #f3d6a4;
+  outline-offset: 12px;
+}
+
+.world>:not(.neon) {
+  transition: filter .6s cubic-bezier(.4, 0, .2, 1);
+}
+
+.atmosphere {
+  transition: filter .6s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon {
+  transition: translate .58s cubic-bezier(.22, .61, .36, 1), scale .58s cubic-bezier(.22, .61, .36, 1);
+}
+
+.neon.near .n-core {
+  stroke: #fff8e9;
+}
+
+.neon.near .n-glow {
+  stroke: #ffc581;
+}
+
+.fit {
+  transition: top 1.2s cubic-bezier(.4, 0, .2, 1), translate .5s ease;
+}
+
+.search-active .fit {
+  translate: 0 0 -70px;
+}
+
+.search-active .world>:not(.neon) {
+  filter: blur(19px) saturate(.65) brightness(.42);
+  pointer-events: none;
+  transition: filter .62s ease;
+}
+
+.search-active .neon {
+  translate: 30px -250px 0;
+  scale: .95;
+}
+
+.search-active .about, .search-active .corner, .search-active .info {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-active .about {
+  transition: opacity .34s ease, transform .34s ease;
+}
+
+.search-active .atmosphere {
+  filter: brightness(.7);
+  transition: filter .62s ease;
+}
+
+/* ========================================================================== */
+/* 首页按钮 */
+/* ========================================================================== */
+.orbit-entry {
+  position: fixed;
+  z-index: 28;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+  background: #10101499;
+  border: 1px solid #b79e5d44;
+  border-radius: 40px;
+  padding: 13px 25px;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+
+body.memory-compose.search-active .world>:not(.neon) {
+  filter: blur(40px) saturate(.45) brightness(.26)!important;
+}
+
+/* A frosted band separates the glowing sign from the cover underneath it. */
+.logo-veil {
+  display: none;
+}
+
+.search-active .neon {
+  translate: 30px -250px -160px;
+  scale: .9;
+}
+
+/* Lamp: the sign casts one weak, diffuse cone downwards onto the reading surface. */
+
+/* ========================================================================== */
+/* 灯光 · 光锥 / 反射 / 遮罩 */
+/* ========================================================================== */
+.search-lamp {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  width: min(1700px, 170vw);
+  height: 140vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 44;
+  opacity: 0;
+  transition: opacity 1s ease .1s;
+  filter: blur(26px);
+  background: conic-gradient(at 50% -64vh, rgba(255, 190, 128, 0) 160deg, rgba(255, 198, 138, .14) 171.5deg, rgba(255, 208, 154, .27) 180deg, rgba(255, 198, 138, .14) 188.5deg, rgba(255, 190, 128, 0) 200deg);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, .95), rgba(0, 0, 0, .84) 30%, rgba(0, 0, 0, .64) 60%, rgba(0, 0, 0, .4) 80%, rgba(0, 0, 0, .18) 94%, transparent 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, .95), rgba(0, 0, 0, .84) 30%, rgba(0, 0, 0, .64) 60%, rgba(0, 0, 0, .4) 80%, rgba(0, 0, 0, .18) 94%, transparent 100%);
+}
+
+body.search-active .search-lamp {
+  animation: lampOpen .6s cubic-bezier(.22, .61, .36, 1) .54s forwards;
+}
+
+@keyframes lampOpen {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* The cone itself opens from the lettering downwards on switch-on. */
+/* Search mode: remove the oval halo, keep only the lettering's own weak bloom. */
+/* Search mode keeps the sign's own glow at exactly the turntable's strength, so the
+   raised SEEK reads as bright as the one on the record player. */
+body.search-active .neon>.neon-aura {
+  opacity: 1!important;
+  width: 900px!important;
+  height: 230px!important;
+  margin: -115px 0 0 -450px!important;
+}
+
+.search-active .neon-pool {
+  opacity: 0!important;
+  transition: opacity .42s ease;
+}
+
+/* Everything stays dark while the sign travels; the switch-on starts the moment it lands (.54s),
+   then settles into a slow breathing glow. */
+/* Ignition is driven by the `sign-lit` class, so the lit colours never depend on an
+   animation holding its fill. */
+.search-active .neon .n-halo {
+  opacity: 0;
+  transition: opacity .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+.search-active .neon .n-glow {
+  stroke: #33261a;
+  transition: stroke .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+.search-active .neon .n-core {
+  stroke: #5f4f3f;
+  transition: stroke .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+body.sign-lit.search-active .neon .n-halo {
+  opacity: .28;
+  transition: opacity .5s cubic-bezier(.22, .61, .36, 1);
+  animation: breathe 4.8s ease-in-out 1s infinite;
+}
+
+body.sign-lit.search-active .neon .n-glow {
+  stroke: #ffb35c;
+}
+
+body.sign-lit.search-active .neon .n-core {
+  stroke: #fff2d9;
+}
+
+@keyframes haloOn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: .28;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: .28;
+  }
+  50% {
+    opacity: .4;
+  }
+}
+
+@keyframes onGlow {
+  from {
+    stroke: #33261a;
+  }
+  to {
+    stroke: #ffb35c;
+  }
+}
+
+@keyframes onCore {
+  from {
+    stroke: #5f4f3f;
+  }
+  to {
+    stroke: #fff2d9;
+  }
+}

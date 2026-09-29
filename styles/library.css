@@ -1,0 +1,265 @@
+/* ==========================================================================
+ * library.css · 唱片收藏（CD 集）
+ * --------------------------------------------------------------------------
+ * 放：编辑 CD 集页面、封面网格与拖拽态、单张唱片编辑弹窗、收藏相关控件。
+ * ========================================================================== */
+
+.cd-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1120px;
+  margin: 0 auto 6px;
+}
+
+.cd-editor-head h2 {
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 4px;
+}
+
+.cd-editor-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 18px 0 26px;
+  margin-top: 30px;
+}
+
+.cd-glass-btn {
+  padding: 14px 30px;
+  border-radius: 40px;
+  border: 1px solid #b2966544;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 16px 40px #0007, inset 0 1px 0 #ffffff14;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease, color .2s ease;
+}
+
+.cd-glass-btn:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+  transform: translateY(-1px);
+}
+
+.cd-glass-btn.primary {
+  border-color: #b79e5d55;
+  color: #e7d5ab;
+}
+
+.cd-editor-close {
+  display: none;
+}
+
+.cd-editor-hint {
+  max-width: 1120px;
+  margin: 16px auto 24px;
+  color: #8e8677;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.cd-grid {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+}
+
+.cd-item {
+  position: relative;
+  cursor: grab;
+  border-radius: 10px;
+  padding: 10px;
+  background: #111318aa;
+  border: 1px solid #ffffff10;
+  transition: transform .15s ease, border-color .15s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cd-item:hover {
+  border-color: #b79e5d55;
+  transform: translateY(-3px);
+}
+
+.cd-item.dragging {
+  opacity: .55;
+  cursor: grabbing;
+  transform: scale(1.07);
+  z-index: 3;
+  border-color: #d8b789;
+  box-shadow: 0 22px 55px #000d;
+  background: #14171cee;
+}
+
+.cd-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+
+.cd-item .cd-item-title {
+  font-size: 13px;
+  margin: 8px 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-item .cd-item-artist {
+  font-size: 11px;
+  color: #948b7a;
+  margin: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: #000a;
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.cd-modal-card {
+  position: relative;
+  width: min(400px, calc(100vw - 40px));
+  max-height: 86vh;
+  overflow: auto;
+  padding: 28px 24px 22px;
+  border: 1px solid #b2966544;
+  border-radius: 20px;
+  background: #101214f7;
+  box-shadow: 0 30px 90px #000;
+}
+
+.cd-modal-card h3 {
+  font-size: 16px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.cd-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #ffffff26;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 #ffffff16;
+  color: #d8cbb2;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.cd-modal-close:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+}
+
+.cd-modal-card label {
+  font-size: 12px;
+  color: #b9aa90;
+  display: block;
+  margin-top: 12px;
+}
+
+.cd-modal-card input {
+  width: 100%;
+  margin-top: 6px;
+  background: #0005;
+  color: #eee;
+  border: 1px solid #8f7c5355;
+  border-radius: 8px;
+  padding: 11px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.cd-modal-card .state-actions {
+  margin-top: 16px;
+}
+
+.cd-modal-card .state-actions button {
+  padding: 12px 24px;
+  border-radius: 30px;
+  border: 1px solid #b2966544;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 14px 34px #0007;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, transform .2s ease;
+}
+
+.cd-modal-card .state-actions button:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+  transform: translateY(-1px);
+}
+
+.cd-modal-card .state-actions button.primary {
+  border-color: #d7bb8c;
+  color: #f0ddb6;
+}
+
+/* Results: the room stays legible — only the sign's own light is diffused, so the
+   soft glowing logo zone reads against a relatively sharp turntable behind it. */
+body.search-active:not([data-seek-state="SEARCH_FOCUS"]):not([data-seek-state="COMPOSING"]) .world>:not(.neon) {
+  filter: blur(9px) saturate(.72) brightness(.55);
+}
+
+body.search-active:not([data-seek-state="SEARCH_FOCUS"]):not([data-seek-state="COMPOSING"]) .atmosphere {
+  filter: brightness(.78);
+}
+
+#search-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 容器 */
+/* ========================================================================== */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  color: #ede4d1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: radial-gradient(ellipse at 50% 55%, #0b0c100d, transparent 70%);
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  animation: overlayIn .5s ease;
+}

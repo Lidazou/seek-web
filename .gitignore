@@ -1,0 +1,23 @@
+# ---- 系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# ---- 本地临时与调试产物 ----
+*.log
+_*
+!/.nojekyll
+*.tmp
+
+# ---- 本地预览脚本（Windows 专用，部署不需要） ----
+# 如果团队里有 Mac/Linux 成员，可以取消下一行的注释
+# 启动预览.bat
+
+# ---- 后端相关（前端仓库不包含） ----
+# models/
+# indexes/
+# data/
+# .venv/

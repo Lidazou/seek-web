@@ -1,0 +1,317 @@
+/* ==========================================================================
+ * search-states.css · 搜索的各个业务状态面板
+ * --------------------------------------------------------------------------
+ * 放：追问卡、空态卡、错误卡、候选总览、补充记忆条、找到详情与曲目列表、
+ *     服务设置面板，以及 [data-state=...] 相关的显隐规则。
+ * 这些面板按业务状态互斥出现，集中一处方便对照状态机。
+ * ========================================================================== */
+
+.search-bottom {
+  text-align: center;
+  padding: 8px 10px 30px;
+}
+
+.supplement {
+  position: fixed;
+  left: 50%;
+  bottom: 11vh;
+  transform: translateX(-50%);
+  z-index: 9;
+  margin: 0;
+  width: min(560px, 88vw);
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #1a1814d9, #0f110ee8);
+  border: 1px solid #d8c39a3d;
+  box-shadow: 0 26px 70px #000a, inset 0 1px 0 #ffffff14;
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  transition: width .5s cubic-bezier(.22, .61, .36, 1), padding .5s cubic-bezier(.22, .61, .36, 1), bottom .55s cubic-bezier(.22, .61, .36, 1), border-radius .5s ease, box-shadow .5s ease;
+}
+
+.supplement-hint {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: #c9b892;
+  margin-bottom: 12px;
+}
+
+.supplement label {
+  display: block;
+  text-align: left;
+  font-size: 12px;
+  color: #cbbb9e;
+  margin-bottom: 9px;
+}
+
+.supplement-row {
+  display: flex;
+  gap: 10px;
+}
+
+.supplement input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #94826066;
+  padding: 8px;
+  color: #e6dbc8;
+}
+
+/* Focused composition: one glass prompt, everything else falls away. */
+.compose-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s ease;
+  background: radial-gradient(ellipse at 50% 55%, #07080ad9, #050608a6 58%, #04050733);
+}
+
+body.memory-compose .compose-scrim {
+  opacity: 1;
+}
+
+body.memory-compose .supplement {
+  width: min(780px, 92vw);
+  padding: 26px 28px;
+  bottom: 27vh;
+  border-radius: 30px;
+  box-shadow: 0 44px 120px #000d, inset 0 1px 0 #ffffff1f;
+}
+
+/* The resting "add memory" control is itself a prompt bar. */
+#add-memory {
+  display: block;
+  width: min(560px, 88vw);
+  margin: 0 auto 16px;
+  padding: 15px 20px;
+  border-radius: 22px;
+  text-align: left;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #b4a891;
+  background: linear-gradient(180deg, #1a1814c4, #0f110ed4);
+  border: 1px solid #d8c39a33;
+  box-shadow: 0 18px 46px #0007, inset 0 1px 0 #ffffff12;
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  transition: color .25s ease, border-color .25s ease, transform .25s ease, opacity .3s ease;
+}
+
+#add-memory:hover {
+  color: #efe3c9;
+  border-color: #c9b184;
+  transform: translateY(-1px);
+}
+
+body.memory-compose #add-memory {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-bottom {
+  text-align: center;
+  padding: 8px 10px 7vh;
+}
+
+.state-card {
+  max-width: 610px;
+  width: 85%;
+  text-align: center;
+  margin: calc(clamp(120px, 18vh, 210px) + 114px) auto 50px;
+}
+
+.state-card p {
+  color: #a99f8c;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 25px;
+}
+
+.question-choices {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.question-choices button {
+  min-width: 95px;
+}
+
+.overview {
+  width: min(960px, 92%);
+  margin: 142px auto;
+}
+
+/* 全局查看「可能的唱片」时，标题要下移让开左上角的记忆栏，避免文字互相干涉 */
+body.overview-open .overview {
+  margin-top: clamp(250px, 33vh, 420px);
+}
+
+.overview-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.overview-grid button {
+  border-radius: 12px;
+  padding: 9px;
+  background: #12141399;
+  text-align: left;
+}
+
+.overview-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.overview-grid strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  margin: 10px 0 6px;
+}
+
+.overview-grid small {
+  color: #8e8677;
+  font-size: 11px;
+}
+
+.track-list {
+  list-style: none;
+  padding: 0;
+  max-width: 550px;
+  margin: 20px auto;
+  text-align: left;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.track-list li {
+  border-bottom: 1px solid #bc9f6322;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 11px 8px;
+  font-size: 12px;
+  color: #c5baa6;
+}
+
+.track-list li span:first-child {
+  color: #887b64;
+  font-size: 10px;
+  min-width: 24px;
+}
+
+.track-list li span:nth-child(2) {
+  flex: 1;
+}
+
+.track-list button {
+  font-size: 10px;
+  padding: 6px 10px;
+}
+
+.found-meta {
+  font-size: 11px;
+  color: #a99c85;
+  line-height: 1.8;
+}
+
+.settings {
+  position: fixed;
+  z-index: 15;
+  right: 30px;
+  top: 88px;
+  width: min(390px, calc(100vw - 40px));
+  padding: 22px;
+  border: 1px solid #b2966544;
+  border-radius: 20px;
+  background: #101214f5;
+  box-shadow: 0 20px 70px #000a;
+}
+
+.settings h3 {
+  font-size: 16px;
+  font-weight: 400;
+  margin: 0 0 12px;
+}
+
+.settings label {
+  font-size: 12px;
+  color: #b9aa90;
+}
+
+.settings input {
+  width: 100%;
+  margin: 12px 0;
+  background: #0005;
+  color: #eee;
+  border: 1px solid #8f7c5355;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.settings p {
+  font-size: 11px;
+  color: #8e8677;
+  line-height: 1.7;
+}
+
+.settings .state-actions {
+  margin: 12px 0 0;
+}
+
+.live-notice {
+  font-size: 12px;
+  color: #c6ae85;
+  min-height: 20px;
+  margin: 10px auto;
+  text-align: center;
+}
+
+[data-state="MEMORY_DISSOLVE"] .composer {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-7px);
+  transition: opacity .65s, filter .65s, transform .65s;
+}
+
+.search-overlay[data-state="FOUND"] .candidate-copy {
+  min-height: 0;
+}
+
+.search-overlay[data-state="CANDIDATE_FORMING"] .candidate-copy {
+  opacity: .4;
+}
+
+.search-overlay[data-state="COMPLETED"] .candidate-actions {
+  display: none;
+}
+
+.search-overlay[data-state="SEARCH_FOCUS"] .memory-anchor:empty {
+  display: none;
+}
