@@ -1,4 +1,4 @@
-# SEEK · 记忆寻音（Web 前端）
+﻿# SEEK · 记忆寻音（Web 前端）
 
 > 用模糊的记忆，找回那首歌。
 >
@@ -14,6 +14,7 @@
 
 - [1. 它长什么样](#1-它长什么样)
 - [2. 快速开始（前端单独跑）](#2-快速开始前端单独跑)
+- [2.5 只想看一眼？用单文件版](#25-只想看一眼用单文件版)
 - [3. 前端部署到 GitHub Pages](#3-前端部署到-github-pages)
 - [4. 部署 seek 后端](#4-部署-seek-后端)
 - [5. 把前端接到后端](#5-把前端接到后端跨域是重点)
@@ -56,7 +57,12 @@
 
 ### 2.2 三种启动方式
 
-**Windows 一键**：双击 `启动预览.bat`（自动挑 Python 或 Node 并打开浏览器）。
+**Node（推荐，仓库自带、零依赖、跨平台）**：
+
+```bash
+node serve.mjs          # 默认 http://127.0.0.1:8899
+node serve.mjs 3000     # 也可指定端口
+```
 
 **Python**：
 
@@ -74,6 +80,38 @@ npx serve -l 8899
 
 启动后在页面里应当看到：唱片依次入场排成环形轨道、SEEK 灯牌点亮。
 点击 SEEK 打开搜索，输入任意描述点「开始寻找」，会走**示例演示**数据。
+
+---
+
+## 2.5 只想看一眼？用单文件版
+
+如果你不想开服务器，仓库里有一份**构建产物**可以直接双击打开：
+
+```text
+standalone/seek-web.standalone.html
+```
+
+它是把 9 个 CSS 与 19 个 ES Module 全部内联后的**单文件 HTML**，
+`file://` 也能跑，适合本地查看、分享、离线演示。
+
+> ⚠️ **它是自动生成的，不要直接改。**
+> 源码仍然在 `index.html` + `styles/` + `js/`；改完源码后重新生成：
+>
+> ```bash
+> node tools/build-standalone.mjs
+> ```
+>
+> 打包器会做拓扑排序、剥掉模块语法、用 `vm.Script` 编译校验（顶层重名直接报错），
+> 并在文件顶部插入「请勿直接修改」的警示。
+
+两套东西的关系：
+
+| 版本 | 入口 | 用途 |
+|---|---|---|
+| 模块化（源码） | 根目录 `index.html` | **开发 + 部署到 GitHub Pages** |
+| 单文件（产物） | `standalone/seek-web.standalone.html` | 双击查看、分享、归档 |
+
+两者行为一致，但**只有源码需要维护**。
 
 ---
 
@@ -436,7 +474,9 @@ SEEK_Frontend/
 │  │  ├─ particle-morph-engine.js 粒子动画（纯视觉）
 │  │  └─ search-view.js           只负责把 Store 画到 DOM
 │  └─ demo/                       demo-data.js / demo-provider.js
-├─ tools/                         verify-modules.js / import-test.mjs
+├─ standalone/                    seek-web.standalone.html（构建产物）+ 说明
+├─ serve.mjs                      本地预览服务器（零依赖，跨平台）
+├─ tools/                         build-standalone.mjs / verify-modules.js / import-test.mjs
 ├─ README.md                      本文件
 └─ README-frontend.md             更详细的开发与对接说明（17 节）
 ```
@@ -470,6 +510,7 @@ main
 | 星空与氛围 | `js/scene/deep-sky.js` |
 | 示例数据 | `js/demo/` |
 | 接口地址 / 环境开关 | `config/seek-config.js` |
+| 单文件版（只读，自动生成） | `standalone/seek-web.standalone.html`，改完源码跑 `node tools/build-standalone.mjs` |
 
 **加一个新后端字段的步骤**
 

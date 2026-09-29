@@ -1,0 +1,4507 @@
+<!--
+  ============================================================================
+  ⚠️  这是自动生成的文件，请勿直接修改！
+  ----------------------------------------------------------------------------
+  它是模块化源码的「单文件构建产物」：9 个 CSS 与 19 个 ES Module 全部内联，
+  好处是可以双击直接打开（file:// 也能跑），方便查看、分享、离线演示。
+
+  源码在哪里（只维护这些）：
+      index.html          页面结构
+      styles/*.css        样式（9 个文件）
+      js/**/*.js          逻辑（ES Module）
+      config/             环境配置
+
+  改了源码之后重新生成本文件：
+      node tools/build-standalone.mjs
+
+  仓库里同时存在两套东西是刻意的：
+      · 根目录 index.html + styles/ + js/          → 正式源码，用于开发与部署
+      · standalone/seek-web.standalone.html        → 构建产物，用于双击查看与分享
+  两者行为一致，但只有源码需要维护。
+  ============================================================================
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ORBIT — 浮游唱片档案</title>
+
+  <!--
+  ============================================================================
+  SEEK 前端 · Seek 音乐检索（Vanilla HTML + CSS + ES Modules）
+  ----------------------------------------------------------------------------
+  本文件只负责「页面结构」。样式在 styles/，逻辑在 js/，配置在 config/。
+  修改指引：
+    · 改结构 / 增删 DOM       → 本文件
+    · 改视觉                  → styles/ 下对应组件文件
+    · 改搜索流程              → js/search/search-controller.js
+    · 改后端协议 / 字段映射   → js/search/seek-api.js + candidate-mapper.js
+    · 改演示数据              → js/demo/
+    · 改接口地址 / 超时       → config/seek-config.js
+  样式加载顺序即层叠顺序，不要随意调换（responsive.css 必须最后）。
+  ============================================================================
+  -->
+
+<style>
+/* ===== styles/base.css ===== */
+/* ==========================================================================
+ * base.css · 基础层
+ * --------------------------------------------------------------------------
+ * 放：reset、html/body、button/input/textarea、排版、无障碍辅助类（.sr-only）、
+ *     全局 CSS 变量与动效时长变量。
+ * 不放：任何具体组件样式（场景 / 搜索 / 收藏各有自己的文件）。
+ * ========================================================================== */
+
+:root {
+  /* 底色与文字 */
+  --seek-bg: #020304;
+  --seek-text: #ede4d1;
+  --seek-muted: #9b9286;
+  --seek-gold: #b8a77d;
+  --seek-gold-soft: #d8b789;
+
+  /* 圆角 */
+  --seek-radius-sm: 8px;
+  --seek-radius-md: 16px;
+  --seek-radius-lg: 30px;
+
+  /* 动效时长：普通 UI 交互只用 fast/normal，粒子 morph 才用 slow */
+  --seek-fast: 180ms;
+  --seek-normal: 320ms;
+  --seek-slow: 620ms;
+}
+
+/* ========================================================================== */
+/* 基础 · 重置与全局 */
+/* ========================================================================== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #eee;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+header {
+  position: fixed;
+  z-index: 20;
+  top: 36px;
+  left: 42px;
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 5px;
+  color: #a99a7c;
+}
+
+h1 {
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 9px;
+  margin: 12px 0;
+}
+
+header p {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #676767;
+}
+
+.toolbar {
+  position: fixed;
+  right: 40px;
+  top: 38px;
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar button {
+  background: #0c0c0c;
+  border: 1px solid #292724;
+  border-radius: 30px;
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.toolbar button:hover, .toolbar button:focus-visible {
+  border-color: #b7a77d;
+  outline: none;
+}
+
+/* ========================================================================== */
+/* 3D 场景 · 视口与世界 */
+/* ========================================================================== */
+.viewport {
+  position: absolute;
+  inset: 0;
+  perspective: 1500px;
+  perspective-origin: 50% 48%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* ===== styles/scene.css ===== */
+/* ==========================================================================
+ * scene.css · 首页 3D 场景（视口 / 氛围 / 星空 / HUD）
+ * --------------------------------------------------------------------------
+ * 放：.viewport / .world / .fit、氛围层、深空画布、星尘与 twinkle 关键帧、
+ *     角标与 HUD、首页两个入口按钮。
+ * 唱片机本体在 turntable.css，SEEK 灯牌在 neon.css。
+ * ========================================================================== */
+
+.fit {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform-style: preserve-3d;
+  transition: top 1.2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.fit.down {
+  top: 50%;
+}
+
+.world {
+  transform: rotateX(-50deg);
+  transform-style: preserve-3d;
+  transition: transform 1.2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.world.tilted {
+  transform: rotateX(-32deg) scale(.926);
+}
+
+/* ========================================================================== */
+/* 唱片机 · 构件与封面盒 */
+/* ========================================================================== */
+.object, .plane, .case, .face, .deck, .record, .arm {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+body.lit #deepsky {
+  opacity: 1;
+}
+
+#stardust {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 2.8s ease .2s;
+}
+
+#stardust i {
+  position: absolute;
+  border-radius: 50%;
+  background: #d5d6c8;
+  box-shadow: 0 0 7px #d2c6a350;
+}
+
+body.lit #stardust {
+  opacity: 1;
+}
+
+/* ========================================================================== */
+/* 动画 · keyframes */
+/* ========================================================================== */
+@keyframes twinkle {
+  from {
+    opacity: var(--o, .3);
+  }
+  to {
+    opacity: calc(var(--o, .3) * .3);
+  }
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #a9a398;
+  padding: 0 8px;
+}
+
+.zoom-control input {
+  width: 70px;
+  accent-color: #b8a77d;
+}
+
+.zoom-control output {
+  width: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.about {
+  position: fixed;
+  left: 50%;
+  top: 34px;
+  transform: translate(-50%, 48px);
+  z-index: 18;
+  width: min(700px, 88vw);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1.2s ease .15s, transform 1.2s cubic-bezier(.22, .61, .36, 1) .15s;
+  pointer-events: none;
+}
+
+.about.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.about-title {
+  font-size: 52px;
+  letter-spacing: 8px;
+  font-weight: 400;
+  color: #efe4c8;
+  text-shadow: 0 2px 20px #000c;
+}
+
+.about-title b {
+  color: #b8a77d;
+  font-weight: 400;
+}
+
+.about-sub {
+  font-size: 15px;
+  letter-spacing: 4px;
+  color: #b3a67f;
+  margin: 10px 0 16px;
+}
+
+.about-desc {
+  font-size: 14px;
+  line-height: 2;
+  letter-spacing: 1px;
+  color: #cfc8b6;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.about-meta {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #8a8068;
+  margin-top: 16px;
+}
+
+header, .toolbar, .hud, #progress {
+  display: none;
+}
+
+/* ========================================================================== */
+/* 界面骨架 · 角标 / HUD / 进度 */
+/* ========================================================================== */
+.corner {
+  position: fixed;
+  top: 36px;
+  z-index: 16;
+  pointer-events: none;
+  color: #c9ba8e;
+}
+
+.corner-tl {
+  left: 42px;
+  text-align: left;
+}
+
+.corner-tr {
+  right: 42px;
+  text-align: right;
+}
+
+.corner-brand {
+  font-size: 21px;
+  letter-spacing: 8px;
+  color: #e7d9b4;
+  text-shadow: 0 0 18px #b8a77d33;
+}
+
+.corner-tag {
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: #8a8068;
+  margin-top: 8px;
+}
+
+.corner-line {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #c3b48a;
+  line-height: 1.7;
+}
+
+.corner:after {
+  content: '';
+  display: block;
+  width: 46px;
+  height: 1px;
+  background: linear-gradient(90deg, #b8a77d, transparent);
+  margin-top: 10px;
+}
+
+.corner-tr:after {
+  margin-left: auto;
+  background: linear-gradient(270deg, #b8a77d, transparent);
+}
+
+.orbit-entry:hover {
+  border-color: #d8b789;
+}
+
+.search-active .orbit-entry {
+  display: none;
+}
+
+.orbit-entry.secondary {
+  left: auto;
+  right: 20px;
+  transform: none;
+  bottom: 25px;
+  padding: 10px 20px;
+  font-size: 11px;
+  border-color: #5d7b8a4a;
+  color: #a9c4c2;
+  letter-spacing: 1px;
+}
+
+.orbit-entry.secondary:hover {
+  border-color: #8fb7bf;
+}
+
+/* ===== styles/turntable.css ===== */
+/* ==========================================================================
+ * turntable.css · 3D 唱片机与环绕唱片
+ * --------------------------------------------------------------------------
+ * 放：唱盘 / 唱片 / 唱臂、封面盒（.case / .face / .back / .edge / .glass /
+ *     .hinge）、环绕轨道几何、hover 与选中态。
+ * 说明：这是首页最大的三维构件，单独成文件后 scene.css 只留视口与氛围。
+ * ========================================================================== */
+
+.plane {
+  left: 0;
+  top: 0;
+}
+
+.deck {
+  width: 680px;
+  height: 600px;
+  left: -340px;
+  top: -300px;
+  border-radius: 30px;
+  background: linear-gradient(145deg, #30302e, #121311 35%, #080908 70%, #292822);
+  border: 1px solid #5b574b;
+  box-shadow: inset 0 0 0 8px #151613, inset 0 0 0 9px #3a3932, 0 0 65px #b6964e0a;
+  transform: translate3d(0, 128px, 0) rotateX(90deg);
+}
+
+.deck.layer {
+  background: #0d0e0d;
+  transform: translate3d(0, 160px, 0) rotateX(90deg);
+  border-color: #33312a;
+}
+
+.deck.layer:nth-child(2) {
+  transform: translate3d(0, 152px, 0) rotateX(90deg);
+}
+
+.deck.layer:nth-child(3) {
+  transform: translate3d(0, 144px, 0) rotateX(90deg);
+}
+
+.side {
+  position: absolute;
+  left: -312px;
+  top: 125px;
+  width: 624px;
+  height: 35px;
+  background: linear-gradient(#33322c, #11120f 30%, #080908);
+  border-bottom: 1px solid #6a6149;
+  transform: translateZ(300px);
+  border-radius: 0 0 8px 8px;
+}
+
+.side:after {
+  content: 'O R B I T    /    A N A L O G U E   S Y S T E M';
+  position: absolute;
+  left: 30px;
+  top: 12px;
+  color: #9b9174;
+  font-size: 7px;
+  letter-spacing: 2px;
+}
+
+.platter {
+  position: absolute;
+  width: 556px;
+  height: 556px;
+  border-radius: 50%;
+  left: 32px;
+  top: 22px;
+  background: repeating-radial-gradient(circle, #5a584f 0 1px, #181a17 2px 4px);
+  box-shadow: 0 8px 0 #77715e, 0 13px 0 #181915, 0 18px 22px #000;
+  transform: translateZ(7px);
+}
+
+.record {
+  inset: 8px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, transparent 0 2px, #62615726 2.5px, #020303 3.5px), conic-gradient(from 20deg, #060707, #242722 15%, #050606 29%, #080909 48%, #36382f 63%, #030404 77%, #141512 92%, #060707);
+  box-shadow: inset 0 0 0 2px #090a08;
+}
+
+.label {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  left: 50%;
+  top: 50%;
+  margin: -66px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #191714 0 6%, #aea079 7% 8%, #24211c 9% 13%, #aa9270 14% 15%, #c1ac80 16% 100%);
+  color: #28251d;
+  text-align: center;
+  padding-top: 23px;
+  font-size: 9px;
+  letter-spacing: 3px;
+}
+
+.label b {
+  display: block;
+  font-size: 20px;
+  letter-spacing: 5px;
+  margin-bottom: 43px;
+}
+
+.spindle {
+  position: absolute;
+  left: 306px;
+  top: 294px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(at 20% 20%, #fff, #7e807b 45%, #161813);
+  transform: translateZ(30px);
+  box-shadow: 3px 4px 6px #000;
+}
+
+.arm {
+  right: 45px;
+  top: 48px;
+  width: 48px;
+  height: 48px;
+  background: radial-gradient(circle, #31312c 15%, #989789 19%, #161713 24%, #44443b 55%, #10110e 58%);
+  border-radius: 50%;
+  transform: translateZ(28px);
+}
+
+.arm:before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  width: 12px;
+  height: 265px;
+  background: linear-gradient(90deg, #292c28, #b7b9a9 35%, #676b62 50%, #21251f);
+  transform-origin: 50% 8px;
+  transform: rotate(22deg);
+  border-radius: 7px;
+  box-shadow: 12px 7px 8px #0009;
+}
+
+.arm:after {
+  content: '';
+  position: absolute;
+  left: -73px;
+  top: 249px;
+  width: 27px;
+  height: 46px;
+  background: linear-gradient(90deg, #0a0b09, #4b4a3e, #10120e);
+  transform: rotate(22deg);
+  border: 1px solid #77725c;
+}
+
+.power {
+  position: absolute;
+  right: 40px;
+  bottom: 33px;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #756d57;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 6px #191a15;
+  background: #b8ae85;
+}
+
+.power:after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #d3c89a;
+  box-shadow: 0 0 10px #dcc591;
+  top: 10px;
+  left: -20px;
+}
+
+.speed {
+  position: absolute;
+  left: 47px;
+  bottom: 13px;
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: #7b7767;
+}
+
+.foot {
+  width: 62px;
+  height: 32px;
+  position: absolute;
+  background: linear-gradient(#33332c, #080908);
+  border-radius: 10px;
+  top: 153px;
+  transform: translate3d(-260px, 0, 242px);
+}
+
+.foot.r {
+  transform: translate3d(204px, 0, 242px);
+}
+
+.case {
+  width: 156px;
+  height: 156px;
+  left: -78px;
+  top: -78px;
+  cursor: pointer;
+  outline: none;
+}
+
+.face {
+  inset: 0;
+  border-radius: 3px;
+  border: 1px solid #d9e9e52e;
+  background: linear-gradient(120deg, #d9eeea0d, #ffffff02 35%, #b5d5d30c);
+  box-shadow: inset 1px 1px 1px #ffffff35, inset -1px -1px 1px #9fbab633, 0 8px 15px #0006;
+  transform: translateZ(5px);
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.art {
+  position: absolute;
+  width: 142px;
+  height: 142px;
+  left: 9px;
+  top: 6px;
+  object-fit: cover;
+  border-radius: 1px;
+  filter: saturate(.84);
+}
+
+.glass {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(121deg, transparent 8%, #d7e9e910 9%, transparent 11%, transparent 35%, #fff2 36%, #fff0 39%, transparent 65%, #c1dbd70b 66%);
+  box-shadow: inset 0 0 0 3px #a0c4c407;
+  transform: translateZ(8px);
+  pointer-events: none;
+}
+
+.back {
+  inset: 0;
+  position: absolute;
+  border: 1px solid #a6c4be42;
+  transform: translateZ(-5px) rotateY(180deg);
+  backface-visibility: hidden;
+  background: #141a19ba;
+  border-radius: 3px;
+}
+
+.edge {
+  position: absolute;
+  width: 10px;
+  height: 156px;
+  left: 0;
+  top: 0;
+  transform: translateX(-5px) rotateY(90deg);
+  background: linear-gradient(90deg, #76898466, #ecfff566, #19221f77, #b9dcd56e);
+  border: 1px solid #d7e6df66;
+}
+
+.edge.right {
+  left: 156px;
+}
+
+.edge.top {
+  width: 156px;
+  height: 10px;
+  left: 0;
+  transform: translateY(-5px) rotateX(90deg);
+}
+
+.edge.bottom {
+  width: 156px;
+  height: 10px;
+  left: 0;
+  top: 156px;
+  transform: translateY(-5px) rotateX(90deg);
+}
+
+.hinge {
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 140px;
+  background: repeating-linear-gradient(0deg, #d8ecea26 0 1px, #0002 1px 3px);
+  transform: translateZ(7px);
+  border-right: 1px solid #b6cfcb44;
+}
+
+.case:focus-visible .face {
+  border-color: #dfc78b;
+}
+
+.floor {
+  position: absolute;
+  width: 920px;
+  height: 920px;
+  left: -460px;
+  top: -460px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #9682560b, transparent 65%);
+  transform: translateY(180px) rotateX(90deg);
+  pointer-events: none;
+}
+
+.orbit-line {
+  position: absolute;
+  width: 880px;
+  height: 880px;
+  left: -440px;
+  top: -440px;
+  border-radius: 50%;
+  border: 1px solid #b8a47716;
+  transform: translateY(110px) rotateX(90deg);
+  pointer-events: none;
+}
+
+.hud {
+  position: fixed;
+  bottom: 30px;
+  left: 42px;
+  right: 42px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  z-index: 20;
+  pointer-events: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #77756e;
+}
+
+.dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b7aa87;
+  margin-right: 10px;
+  box-shadow: 0 0 12px #b7aa8755;
+}
+
+.hint {
+  line-height: 2;
+  text-align: right;
+}
+
+.info {
+  position: fixed;
+  z-index: 25;
+  bottom: 82px;
+  left: 50%;
+  width: 360px;
+  max-width: 85vw;
+  transform: translate(-50%, 12px);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s, transform .35s;
+  text-shadow: 0 2px 18px #000, 0 2px 8px #000;
+  background: radial-gradient(ellipse, #000c, transparent 70%);
+  padding: 18px;
+}
+
+.info.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.info small {
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: #b4a588;
+}
+
+.info h2 {
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  margin: 10px 0;
+}
+
+.info p {
+  color: #b3b0a7;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin: 8px;
+}
+
+#progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: #b6a078;
+  width: 0;
+  box-shadow: 0 0 9px #bea577;
+  transition: opacity 1s;
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, #76634530 0%, #33374126 27%, #10172018 52%, transparent 76%), #020304;
+}
+
+.atmosphere:before {
+  content: '';
+  position: absolute;
+  width: 75vw;
+  height: 90vh;
+  left: 12.5vw;
+  top: 0;
+  background: radial-gradient(ellipse at 50% 48%, #c2ab7020, transparent 62%);
+  filter: blur(40px);
+}
+
+/* ========================================================================== */
+/* 星空 · 深空画布与星尘 */
+/* ========================================================================== */
+#deepsky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 3s ease .15s;
+}
+
+/* ===== styles/neon.css ===== */
+/* ==========================================================================
+ * neon.css · SEEK 霓虹灯牌
+ * --------------------------------------------------------------------------
+ * 单独成文件的原因：SEEK 是核心交互入口（点击进入搜索），搜索态下它的位移、
+ * 点亮与光锥逻辑与场景其余部分无关。
+ * 放：.neon / .neon-spin / .neon-body、SEEK SVG、光晕 halo / aura / pool、
+ *     搜索态位移、.search-lamp 光锥、灯牌相关 keyframes。
+ * ========================================================================== */
+
+/* ========================================================================== */
+/* 霓虹灯牌 · SEEK */
+/* ========================================================================== */
+.neon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate3d(-26px, 0, 0);
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.neon-spin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+  animation: neonSpin 16s linear infinite;
+}
+
+.neon-body {
+  position: absolute;
+  left: -334px;
+  top: -127px;
+  width: 668px;
+  height: 254px;
+  transform-style: preserve-3d;
+  animation: neonBob 3.8s ease-in-out infinite;
+}
+
+.neon-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+}
+
+.neon-face.nf-front {
+  transform: translateZ(15px);
+}
+
+.neon-face.nf-back {
+  transform: translateZ(-15px) rotateY(180deg);
+}
+
+.neon-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.n-halo {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #ff8c28;
+  stroke-width: 48;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 1.3s ease;
+}
+
+.neon.on .n-halo {
+  opacity: .28;
+}
+
+.n-glow {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #33261a;
+  stroke-width: 21;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 1.3s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon.on .n-glow {
+  stroke: #ffb35c;
+}
+
+.n-core {
+  font: 700 155px 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', 'Snell Roundhand', cursive;
+  fill: none;
+  stroke: #5f4f3f;
+  stroke-width: 8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 1.3s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon.on .n-core {
+  stroke: #fff2d9;
+}
+
+.neon-aura {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 900px;
+  height: 230px;
+  margin: -115px 0 0 -450px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 150, 50, .30) 0%, rgba(255, 120, 30, .14) 40%, transparent 72%);
+  opacity: 0;
+  transition: opacity 1.3s ease;
+  animation: auraPulse 3.8s ease-in-out infinite;
+}
+
+.neon.on .neon-aura {
+  opacity: 1;
+}
+
+.neon-pool {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 980px;
+  height: 980px;
+  margin: -490px 0 0 -490px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 158, 74, .30) 0%, rgba(255, 132, 44, .15) 34%, rgba(255, 110, 30, .045) 58%, transparent 74%);
+  transform: translate3d(0, 116px, 0) rotateX(90deg);
+  opacity: 0;
+  transition: opacity 1.3s ease;
+}
+
+.neon.on .neon-pool {
+  opacity: 1;
+}
+
+@keyframes neonSpin {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes neonBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes auraPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* Replacement SEEK object only: original animation and lighting rules above are retained. */
+.neon-face.nf-front {
+  transform: translateZ(15px);
+}
+
+.neon-face.nf-back {
+  transform: translateZ(-15px) rotateY(180deg);
+}
+
+.sign-plate {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  border: 1px solid #b688665c;
+  background: linear-gradient(118deg, #9e795d12, #6f4a3110 38%, #30271d0d 65%, #bb9b771a);
+  box-shadow: inset 0 0 0 2px #11171355, inset 1px 1px 1px #e9d9bd4a;
+  backface-visibility: visible;
+}
+
+.plate-front {
+  transform: translateZ(13px);
+}
+
+.plate-back {
+  transform: translateZ(-13px);
+}
+
+.sign-rim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 30px;
+  margin-top: -15px;
+  transform-origin: 0 50%;
+  background: linear-gradient(0deg, #36281c88, #b8997966 15%, #69554455 40%, #201b1766 65%, #d5b18b88);
+  border-top: 1px solid #b3937038;
+  border-bottom: 1px solid #c3a98844;
+}
+
+.tube-volume {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.n-tube-wall {
+  fill: none;
+  stroke: #5d351f;
+  stroke-width: 25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.n-tube-shadow {
+  fill: none;
+  stroke: #261b15;
+  stroke-width: 30;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.sign-fastener {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  transform: translateZ(15px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 25%, #b6a58d, #5d554a 32%, #11120f 42%, #211f1b 70%, #776c5b 73%, #262620);
+  box-shadow: 1px 2px 2px #0009;
+}
+
+.sign-fastener:after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: 4px;
+  height: 1px;
+  background: #15130f;
+  transform: rotate(-35deg);
+}
+
+/* Acrylic enclosure removed: only the neon tube lettering is kept. */
+.sign-plate, .sign-rim, .sign-fastener, .neon-svg>g {
+  display: none!important;
+}
+
+/* Width/height are 4/3 of the previous half-size model. The animation wrapper and 30 mm depth retain scene scale. */
+.neon-model {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: scale3d(.666666667, .666666667, 1);
+  transform-origin: 50% 50%;
+}
+
+/* Editorial Chinese serif typography; all fonts resolve locally/offline. */
+.seek-cn, .about-sub, .about-desc {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.seek-cn {
+  letter-spacing: 10px;
+}
+
+.about-sub {
+  letter-spacing: 3px;
+}
+
+.about-desc {
+  letter-spacing: 1.2px;
+}
+
+/* Search layer: the existing 3D scene remains mounted throughout the session. */
+[hidden] {
+  display: none!important;
+}
+
+.neon-body {
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.neon-body:focus-visible {
+  outline: 2px solid #f3d6a4;
+  outline-offset: 12px;
+}
+
+.world>:not(.neon) {
+  transition: filter .6s cubic-bezier(.4, 0, .2, 1);
+}
+
+.atmosphere {
+  transition: filter .6s cubic-bezier(.4, 0, .2, 1);
+}
+
+.neon {
+  transition: translate .58s cubic-bezier(.22, .61, .36, 1), scale .58s cubic-bezier(.22, .61, .36, 1);
+}
+
+.neon.near .n-core {
+  stroke: #fff8e9;
+}
+
+.neon.near .n-glow {
+  stroke: #ffc581;
+}
+
+.fit {
+  transition: top 1.2s cubic-bezier(.4, 0, .2, 1), translate .5s ease;
+}
+
+.search-active .fit {
+  translate: 0 0 -70px;
+}
+
+.search-active .world>:not(.neon) {
+  filter: blur(19px) saturate(.65) brightness(.42);
+  pointer-events: none;
+  transition: filter .62s ease;
+}
+
+.search-active .neon {
+  translate: 30px -250px 0;
+  scale: .95;
+}
+
+.search-active .about, .search-active .corner, .search-active .info {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-active .about {
+  transition: opacity .34s ease, transform .34s ease;
+}
+
+.search-active .atmosphere {
+  filter: brightness(.7);
+  transition: filter .62s ease;
+}
+
+/* ========================================================================== */
+/* 首页按钮 */
+/* ========================================================================== */
+.orbit-entry {
+  position: fixed;
+  z-index: 28;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+  background: #10101499;
+  border: 1px solid #b79e5d44;
+  border-radius: 40px;
+  padding: 13px 25px;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+
+body.memory-compose.search-active .world>:not(.neon) {
+  filter: blur(40px) saturate(.45) brightness(.26)!important;
+}
+
+/* A frosted band separates the glowing sign from the cover underneath it. */
+.logo-veil {
+  display: none;
+}
+
+.search-active .neon {
+  translate: 30px -250px -160px;
+  scale: .9;
+}
+
+/* Lamp: the sign casts one weak, diffuse cone downwards onto the reading surface. */
+
+/* ========================================================================== */
+/* 灯光 · 光锥 / 反射 / 遮罩 */
+/* ========================================================================== */
+.search-lamp {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  width: min(1700px, 170vw);
+  height: 140vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 44;
+  opacity: 0;
+  transition: opacity 1s ease .1s;
+  filter: blur(26px);
+  background: conic-gradient(at 50% -64vh, rgba(255, 190, 128, 0) 160deg, rgba(255, 198, 138, .14) 171.5deg, rgba(255, 208, 154, .27) 180deg, rgba(255, 198, 138, .14) 188.5deg, rgba(255, 190, 128, 0) 200deg);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, .95), rgba(0, 0, 0, .84) 30%, rgba(0, 0, 0, .64) 60%, rgba(0, 0, 0, .4) 80%, rgba(0, 0, 0, .18) 94%, transparent 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, .95), rgba(0, 0, 0, .84) 30%, rgba(0, 0, 0, .64) 60%, rgba(0, 0, 0, .4) 80%, rgba(0, 0, 0, .18) 94%, transparent 100%);
+}
+
+body.search-active .search-lamp {
+  animation: lampOpen .6s cubic-bezier(.22, .61, .36, 1) .54s forwards;
+}
+
+@keyframes lampOpen {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* The cone itself opens from the lettering downwards on switch-on. */
+/* Search mode: remove the oval halo, keep only the lettering's own weak bloom. */
+/* Search mode keeps the sign's own glow at exactly the turntable's strength, so the
+   raised SEEK reads as bright as the one on the record player. */
+body.search-active .neon>.neon-aura {
+  opacity: 1!important;
+  width: 900px!important;
+  height: 230px!important;
+  margin: -115px 0 0 -450px!important;
+}
+
+.search-active .neon-pool {
+  opacity: 0!important;
+  transition: opacity .42s ease;
+}
+
+/* Everything stays dark while the sign travels; the switch-on starts the moment it lands (.54s),
+   then settles into a slow breathing glow. */
+/* Ignition is driven by the `sign-lit` class, so the lit colours never depend on an
+   animation holding its fill. */
+.search-active .neon .n-halo {
+  opacity: 0;
+  transition: opacity .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+.search-active .neon .n-glow {
+  stroke: #33261a;
+  transition: stroke .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+.search-active .neon .n-core {
+  stroke: #5f4f3f;
+  transition: stroke .5s cubic-bezier(.22, .61, .36, 1) .54s;
+}
+
+body.sign-lit.search-active .neon .n-halo {
+  opacity: .28;
+  transition: opacity .5s cubic-bezier(.22, .61, .36, 1);
+  animation: breathe 4.8s ease-in-out 1s infinite;
+}
+
+body.sign-lit.search-active .neon .n-glow {
+  stroke: #ffb35c;
+}
+
+body.sign-lit.search-active .neon .n-core {
+  stroke: #fff2d9;
+}
+
+@keyframes haloOn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: .28;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: .28;
+  }
+  50% {
+    opacity: .4;
+  }
+}
+
+@keyframes onGlow {
+  from {
+    stroke: #33261a;
+  }
+  to {
+    stroke: #ffb35c;
+  }
+}
+
+@keyframes onCore {
+  from {
+    stroke: #5f4f3f;
+  }
+  to {
+    stroke: #fff2d9;
+  }
+}
+
+/* ===== styles/library.css ===== */
+/* ==========================================================================
+ * library.css · 唱片收藏（CD 集）
+ * --------------------------------------------------------------------------
+ * 放：编辑 CD 集页面、封面网格与拖拽态、单张唱片编辑弹窗、收藏相关控件。
+ * ========================================================================== */
+
+.cd-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1120px;
+  margin: 0 auto 6px;
+}
+
+.cd-editor-head h2 {
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 4px;
+}
+
+.cd-editor-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 18px 0 26px;
+  margin-top: 30px;
+}
+
+.cd-glass-btn {
+  padding: 14px 30px;
+  border-radius: 40px;
+  border: 1px solid #b2966544;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 16px 40px #0007, inset 0 1px 0 #ffffff14;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease, color .2s ease;
+}
+
+.cd-glass-btn:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+  transform: translateY(-1px);
+}
+
+.cd-glass-btn.primary {
+  border-color: #b79e5d55;
+  color: #e7d5ab;
+}
+
+.cd-editor-close {
+  display: none;
+}
+
+.cd-editor-hint {
+  max-width: 1120px;
+  margin: 16px auto 24px;
+  color: #8e8677;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.cd-grid {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+}
+
+.cd-item {
+  position: relative;
+  cursor: grab;
+  border-radius: 10px;
+  padding: 10px;
+  background: #111318aa;
+  border: 1px solid #ffffff10;
+  transition: transform .15s ease, border-color .15s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cd-item:hover {
+  border-color: #b79e5d55;
+  transform: translateY(-3px);
+}
+
+.cd-item.dragging {
+  opacity: .55;
+  cursor: grabbing;
+  transform: scale(1.07);
+  z-index: 3;
+  border-color: #d8b789;
+  box-shadow: 0 22px 55px #000d;
+  background: #14171cee;
+}
+
+.cd-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+
+.cd-item .cd-item-title {
+  font-size: 13px;
+  margin: 8px 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-item .cd-item-artist {
+  font-size: 11px;
+  color: #948b7a;
+  margin: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: #000a;
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.cd-modal-card {
+  position: relative;
+  width: min(400px, calc(100vw - 40px));
+  max-height: 86vh;
+  overflow: auto;
+  padding: 28px 24px 22px;
+  border: 1px solid #b2966544;
+  border-radius: 20px;
+  background: #101214f7;
+  box-shadow: 0 30px 90px #000;
+}
+
+.cd-modal-card h3 {
+  font-size: 16px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.cd-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #ffffff26;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 #ffffff16;
+  color: #d8cbb2;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.cd-modal-close:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+}
+
+.cd-modal-card label {
+  font-size: 12px;
+  color: #b9aa90;
+  display: block;
+  margin-top: 12px;
+}
+
+.cd-modal-card input {
+  width: 100%;
+  margin-top: 6px;
+  background: #0005;
+  color: #eee;
+  border: 1px solid #8f7c5355;
+  border-radius: 8px;
+  padding: 11px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.cd-modal-card .state-actions {
+  margin-top: 16px;
+}
+
+.cd-modal-card .state-actions button {
+  padding: 12px 24px;
+  border-radius: 30px;
+  border: 1px solid #b2966544;
+  background: linear-gradient(180deg, #1a1814cc, #0f110ee8);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 14px 34px #0007;
+  color: #dac8a4;
+  letter-spacing: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, transform .2s ease;
+}
+
+.cd-modal-card .state-actions button:hover {
+  border-color: #d8b789;
+  color: #f3e3c4;
+  transform: translateY(-1px);
+}
+
+.cd-modal-card .state-actions button.primary {
+  border-color: #d7bb8c;
+  color: #f0ddb6;
+}
+
+/* Results: the room stays legible — only the sign's own light is diffused, so the
+   soft glowing logo zone reads against a relatively sharp turntable behind it. */
+body.search-active:not([data-seek-state="SEARCH_FOCUS"]):not([data-seek-state="COMPOSING"]) .world>:not(.neon) {
+  filter: blur(9px) saturate(.72) brightness(.55);
+}
+
+body.search-active:not([data-seek-state="SEARCH_FOCUS"]):not([data-seek-state="COMPOSING"]) .atmosphere {
+  filter: brightness(.78);
+}
+
+#search-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 容器 */
+/* ========================================================================== */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  color: #ede4d1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: radial-gradient(ellipse at 50% 55%, #0b0c100d, transparent 70%);
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  animation: overlayIn .5s ease;
+}
+
+/* ===== styles/search.css ===== */
+/* ==========================================================================
+ * search.css · 搜索 Overlay（容器 / 记忆栏 / 输入区 / 状态 / 候选展示）
+ * --------------------------------------------------------------------------
+ * 目录：
+ *   1. 容器与按钮         .search-overlay
+ *   2. 头部               .search-header
+ *   3. 记忆栏             .memory-anchor / .memory-additions
+ *   4. 输入区玻璃板       .composer / .glass-sheet / .example-roller
+ *   5. 搜索状态           .search-status / .status-light
+ *   6. 候选展示           .viewer / .candidate-copy / .candidate-reasons
+ * 追问、空态、错误、总览、曲目、设置见 search-states.css；
+ * 封面 3D 盒见 cd-case.css。
+ * ========================================================================== */
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.search-overlay button, .search-overlay input, .search-overlay textarea {
+  font: inherit;
+}
+
+.search-overlay button {
+  border: 1px solid #af966248;
+  border-radius: 28px;
+  background: #18191ac4;
+  color: #dfd2b9;
+  padding: 10px 19px;
+  transition: background .2s, border-color .2s;
+}
+
+.search-overlay button:hover:not(:disabled) {
+  background: #473322b0;
+  border-color: #d4ae77;
+}
+
+.search-overlay button:focus-visible, .search-overlay textarea:focus-visible, .search-overlay input:focus-visible {
+  outline: 2px solid #e6be82;
+  outline-offset: 4px;
+}
+
+.search-overlay button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.search-overlay .primary {
+  background: #d7bb8c;
+  color: #21180f;
+  border-color: #d7bb8c;
+}
+
+.search-overlay .text-button {
+  border: none;
+  background: transparent;
+  color: #b4a791;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.search-header {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+  padding: 28px 36px;
+  pointer-events: none;
+  background: linear-gradient(#0607089c, transparent);
+}
+
+.search-header>* {
+  pointer-events: auto;
+}
+
+.search-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 记忆栏 */
+/* ========================================================================== */
+.memory-anchor {
+  max-width: min(560px, 44vw);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.memory-anchor small {
+  font-size: 10px;
+  color: #9b8b70;
+  letter-spacing: 4px;
+}
+
+/* The remembered line reads like a short poem. */
+.memory-anchor p {
+  margin: 12px 0 0;
+  max-height: clamp(150px, 26vh, 260px);
+  overflow: auto;
+  white-space: pre-wrap;
+  text-align: left;
+  color: #e0d4bc;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-size: clamp(26px, 2.2vw, 36px);
+  line-height: 1.85;
+  letter-spacing: 2px;
+  border-left: 1px solid #b8a77d4d;
+  padding-left: 18px;
+  text-wrap: pretty;
+}
+
+.memory-anchor .memory-count {
+  display: block;
+  margin-top: 12px;
+  color: #8b8274;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+.memory-anchor .text-button {
+  margin-top: 10px;
+}
+
+.search-heading {
+  font: 400 32px "Noto Serif SC", "STSong", "SimSun", serif;
+  letter-spacing: 3px;
+  line-height: 1.55;
+  margin: 0 0 23px;
+}
+
+/* First entry: the prompt sits two centimetres under the lowered sign.
+   The sign's glyphs end at ~14.8vh in the search position at every window size. */
+
+/* ========================================================================== */
+/* 搜索界面 · 输入框 */
+/* ========================================================================== */
+.composer {
+  width: min(660px, calc(100% - 44px));
+  margin: calc(14.8vh + 76px) auto 50px;
+  text-align: center;
+  animation: search-in .5s ease;
+}
+
+.glass-sheet {
+  position: relative;
+  padding: 25px 24px 22px;
+  border-radius: 30px;
+  background: radial-gradient(ellipse at 50% 30%, #d0c0a70b, #a8b8bb04 75%);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #d6d9ce1c;
+  border-bottom: 1px solid #c6ae8320;
+  box-shadow: 0 25px 80px #0004;
+}
+
+/* Glass block catching light along its bottom edge. */
+.glass-sheet:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 54%;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(0deg, rgba(255, 192, 134, .14), rgba(255, 198, 142, .05) 44%, transparent);
+}
+
+.glass-sheet:after {
+  content: '';
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 212, 162, .5) 16%, rgba(255, 234, 202, .82) 50%, rgba(255, 212, 162, .5) 84%, transparent);
+  box-shadow: 0 -9px 28px rgba(255, 186, 124, .3), 0 0 20px rgba(255, 196, 138, .24);
+}
+
+/* The reflection along the bottom edge comes up last, at the end of the sweep. */
+body.search-active .glass-sheet:before {
+  animation: edgeOn .5s cubic-bezier(.22, .61, .36, 1) .88s forwards;
+}
+
+body.search-active .glass-sheet:after {
+  animation: edgeOn .46s cubic-bezier(.22, .61, .36, 1) .96s forwards;
+}
+
+@keyframes edgeOn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.composer textarea {
+  resize: none;
+  width: 100%;
+  height: 120px;
+  line-height: 1.8;
+  font-size: 19px;
+  border: 0;
+  border-bottom: 1px solid #bfa47430;
+  background: transparent;
+  color: #ede1ca;
+  padding: 12px;
+  outline: none;
+}
+
+.composer textarea::placeholder {
+  color: #9b9286;
+  font-size: 16px;
+}
+
+.composer-footer {
+  margin-top: 23px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.composer-footer small {
+  font-size: 12px;
+  color: #a89980;
+}
+
+/* 示例提示：在搜索框内滚动轮播，找到贴近自己记忆的那句，点一下就直接开始寻找 */
+.example-roller {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 9px 18px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid #b2966533;
+  background: linear-gradient(180deg, #ffffff0a, #ffffff03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #bfae92;
+  font-size: 13px;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease;
+}
+
+.example-roller:hover {
+  border-color: #d8b789;
+  color: #f0e0c2;
+}
+
+.example-roller-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #8f8677;
+}
+
+.example-roller-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity .34s ease, transform .34s ease;
+}
+
+.example-roller-text.is-rolling {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.example-roller-arrow {
+  flex: 0 0 auto;
+  color: #8f8677;
+}
+
+.search-status {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: min(630px, 85vw);
+}
+
+.search-status p {
+  color: #aaa090;
+  line-height: 1.8;
+  font-size: 13px;
+}
+
+.status-light {
+  width: 5px;
+  height: 5px;
+  background: #e9c792;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 12px;
+  box-shadow: 0 0 16px #ffd291;
+}
+
+.viewer {
+  width: min(850px, 100%);
+  margin: calc(clamp(104px, 16vh, 190px) + 114px) auto 25px;
+  text-align: center;
+  padding: 0 22px;
+}
+
+.candidate-copy {
+  margin: 15px auto 0;
+  min-height: 120px;
+  max-width: 640px;
+}
+
+.candidate-copy h2 {
+  font: 400 25px "Noto Serif SC", "STSong", serif;
+  letter-spacing: 2px;
+  margin: 0 0 6px;
+}
+
+.candidate-copy .artist {
+  color: #b4a994;
+  font-size: 13px;
+  margin: 4px;
+}
+
+.candidate-copy .year-genre {
+  font-size: 10px;
+  color: #847e72;
+  letter-spacing: 2px;
+}
+
+.candidate-reasons {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  text-align: left;
+  margin: 14px auto;
+  font-size: 12px;
+  color: #bcb3a1;
+  line-height: 1.6;
+}
+
+.candidate-reasons div {
+  max-width: 290px;
+}
+
+.candidate-reasons b {
+  color: #bba17b;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+
+.candidate-reasons p {
+  margin: 4px 0;
+}
+
+.candidate-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.candidate-actions button {
+  font-size: 12px;
+}
+
+.candidate-position {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  color: #958872;
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin: 12px;
+}
+
+body.memory-compose.search-active .atmosphere {
+  filter: brightness(.42) blur(9px)!important;
+}
+
+.search-overlay.composer.jitter {
+  animation: composerShake .22s ease-in-out;
+}
+
+@keyframes composerShake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  22% {
+    transform: translate(-1.6px, 1px) rotate(-.16deg);
+  }
+  55% {
+    transform: translate(1.4px, -1.2px) rotate(.14deg);
+  }
+  80% {
+    transform: translate(-.8px, .6px) rotate(-.07deg);
+  }
+}
+
+@keyframes search-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Keep the live neon badge above, rather than behind, the reading surface. */
+.search-header {
+  left: 0;
+}
+
+.search-header-actions {
+  margin-left: auto;
+}
+
+.search-overlay .search-heading {
+  color: #ede4d1;
+}
+
+.search-overlay .composer-footer small {
+  color: #b9aa91;
+}
+
+.search-overlay .text-button {
+  color: #bfb198;
+}
+
+.composer textarea:focus-visible {
+  outline: none;
+  border-bottom-color: #d5b784;
+  box-shadow: 0 1px 0 #d5b784;
+}
+
+.search-overlay .composer textarea {
+  border-radius: 0;
+}
+
+.memory-additions {
+  list-style: none;
+  padding: 0 0 0 18px;
+  margin: 2px 0 0;
+  border-left: 1px solid #b8a77d4d;
+  max-height: 34vh;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #9b845855 transparent;
+}
+
+.memory-additions li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 18px 0 0;
+  color: #c9bda4;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-size: clamp(26px, 2.2vw, 36px);
+  line-height: 1.85;
+  letter-spacing: 2px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.memory-anchor p.is-empty {
+  color: #8b8375;
+}
+
+/* ===== styles/search-states.css ===== */
+/* ==========================================================================
+ * search-states.css · 搜索的各个业务状态面板
+ * --------------------------------------------------------------------------
+ * 放：追问卡、空态卡、错误卡、候选总览、补充记忆条、找到详情与曲目列表、
+ *     服务设置面板，以及 [data-state=...] 相关的显隐规则。
+ * 这些面板按业务状态互斥出现，集中一处方便对照状态机。
+ * ========================================================================== */
+
+.search-bottom {
+  text-align: center;
+  padding: 8px 10px 30px;
+}
+
+.supplement {
+  position: fixed;
+  left: 50%;
+  bottom: 11vh;
+  transform: translateX(-50%);
+  z-index: 9;
+  margin: 0;
+  width: min(560px, 88vw);
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #1a1814d9, #0f110ee8);
+  border: 1px solid #d8c39a3d;
+  box-shadow: 0 26px 70px #000a, inset 0 1px 0 #ffffff14;
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  transition: width .5s cubic-bezier(.22, .61, .36, 1), padding .5s cubic-bezier(.22, .61, .36, 1), bottom .55s cubic-bezier(.22, .61, .36, 1), border-radius .5s ease, box-shadow .5s ease;
+}
+
+.supplement-hint {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: #c9b892;
+  margin-bottom: 12px;
+}
+
+.supplement label {
+  display: block;
+  text-align: left;
+  font-size: 12px;
+  color: #cbbb9e;
+  margin-bottom: 9px;
+}
+
+.supplement-row {
+  display: flex;
+  gap: 10px;
+}
+
+.supplement input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #94826066;
+  padding: 8px;
+  color: #e6dbc8;
+}
+
+/* Focused composition: one glass prompt, everything else falls away. */
+.compose-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s ease;
+  background: radial-gradient(ellipse at 50% 55%, #07080ad9, #050608a6 58%, #04050733);
+}
+
+body.memory-compose .compose-scrim {
+  opacity: 1;
+}
+
+body.memory-compose .supplement {
+  width: min(780px, 92vw);
+  padding: 26px 28px;
+  bottom: 27vh;
+  border-radius: 30px;
+  box-shadow: 0 44px 120px #000d, inset 0 1px 0 #ffffff1f;
+}
+
+/* The resting "add memory" control is itself a prompt bar. */
+#add-memory {
+  display: block;
+  width: min(560px, 88vw);
+  margin: 0 auto 16px;
+  padding: 15px 20px;
+  border-radius: 22px;
+  text-align: left;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #b4a891;
+  background: linear-gradient(180deg, #1a1814c4, #0f110ed4);
+  border: 1px solid #d8c39a33;
+  box-shadow: 0 18px 46px #0007, inset 0 1px 0 #ffffff12;
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  transition: color .25s ease, border-color .25s ease, transform .25s ease, opacity .3s ease;
+}
+
+#add-memory:hover {
+  color: #efe3c9;
+  border-color: #c9b184;
+  transform: translateY(-1px);
+}
+
+body.memory-compose #add-memory {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-bottom {
+  text-align: center;
+  padding: 8px 10px 7vh;
+}
+
+.state-card {
+  max-width: 610px;
+  width: 85%;
+  text-align: center;
+  margin: calc(clamp(120px, 18vh, 210px) + 114px) auto 50px;
+}
+
+.state-card p {
+  color: #a99f8c;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 25px;
+}
+
+.question-choices {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.question-choices button {
+  min-width: 95px;
+}
+
+.overview {
+  width: min(960px, 92%);
+  margin: 142px auto;
+}
+
+/* 全局查看「可能的唱片」时，标题要下移让开左上角的记忆栏，避免文字互相干涉 */
+body.overview-open .overview {
+  margin-top: clamp(250px, 33vh, 420px);
+}
+
+.overview-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.overview-grid button {
+  border-radius: 12px;
+  padding: 9px;
+  background: #12141399;
+  text-align: left;
+}
+
+.overview-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.overview-grid strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  margin: 10px 0 6px;
+}
+
+.overview-grid small {
+  color: #8e8677;
+  font-size: 11px;
+}
+
+.track-list {
+  list-style: none;
+  padding: 0;
+  max-width: 550px;
+  margin: 20px auto;
+  text-align: left;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.track-list li {
+  border-bottom: 1px solid #bc9f6322;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 11px 8px;
+  font-size: 12px;
+  color: #c5baa6;
+}
+
+.track-list li span:first-child {
+  color: #887b64;
+  font-size: 10px;
+  min-width: 24px;
+}
+
+.track-list li span:nth-child(2) {
+  flex: 1;
+}
+
+.track-list button {
+  font-size: 10px;
+  padding: 6px 10px;
+}
+
+.found-meta {
+  font-size: 11px;
+  color: #a99c85;
+  line-height: 1.8;
+}
+
+.settings {
+  position: fixed;
+  z-index: 15;
+  right: 30px;
+  top: 88px;
+  width: min(390px, calc(100vw - 40px));
+  padding: 22px;
+  border: 1px solid #b2966544;
+  border-radius: 20px;
+  background: #101214f5;
+  box-shadow: 0 20px 70px #000a;
+}
+
+.settings h3 {
+  font-size: 16px;
+  font-weight: 400;
+  margin: 0 0 12px;
+}
+
+.settings label {
+  font-size: 12px;
+  color: #b9aa90;
+}
+
+.settings input {
+  width: 100%;
+  margin: 12px 0;
+  background: #0005;
+  color: #eee;
+  border: 1px solid #8f7c5355;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.settings p {
+  font-size: 11px;
+  color: #8e8677;
+  line-height: 1.7;
+}
+
+.settings .state-actions {
+  margin: 12px 0 0;
+}
+
+.live-notice {
+  font-size: 12px;
+  color: #c6ae85;
+  min-height: 20px;
+  margin: 10px auto;
+  text-align: center;
+}
+
+[data-state="MEMORY_DISSOLVE"] .composer {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-7px);
+  transition: opacity .65s, filter .65s, transform .65s;
+}
+
+.search-overlay[data-state="FOUND"] .candidate-copy {
+  min-height: 0;
+}
+
+.search-overlay[data-state="CANDIDATE_FORMING"] .candidate-copy {
+  opacity: .4;
+}
+
+.search-overlay[data-state="COMPLETED"] .candidate-actions {
+  display: none;
+}
+
+.search-overlay[data-state="SEARCH_FOCUS"] .memory-anchor:empty {
+  display: none;
+}
+
+/* ===== styles/cd-case.css ===== */
+/* ==========================================================================
+ * cd-case.css · 候选封面 3D CD 盒
+ * --------------------------------------------------------------------------
+ * 放：.cd-float / .cd-turn / .cd-case / .cd-back / .cd-edge* / .cd-frame /
+ *     .cd-glass / .cd-hinge、.cover-slot / .cover-stage / .candidate-cover
+ *     三维舞台与粒子手交状态。
+ * 说明：它是一块真正的三维构件（透视、旋转、玻璃层），与搜索 UI 排版无关，
+ *       所以从 search.css 单独拆出，方便只改盒子不动界面。
+ * ========================================================================== */
+
+/* ========================================================================== */
+/* 编辑 CD 集 · 页面与弹窗 */
+/* ========================================================================== */
+.cd-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #07080be6;
+  color: #e8ddc8;
+  overflow: auto;
+  padding: 64px 4vw 48px;
+}
+
+/* ========================================================================== */
+/* 搜索界面 · 候选展示 */
+/* ========================================================================== */
+.cover-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 34px;
+  margin: auto;
+  width: 100%;
+  touch-action: pan-y;
+}
+
+.cover-slot {
+  width: min(35vh, 330px, 58vw);
+  aspect-ratio: 1;
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  perspective: 1100px;
+}
+
+.candidate-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+/* The displayed cover is the same jewel case as the ones on the turntable: front
+   artwork, a 10px shell with edges, an acrylic frame, glass and the hinge. It turns
+   slowly and breathes while it sits there. */
+
+/* ========================================================================== */
+/* 展示封面 · 3D CD 盒 */
+/* ========================================================================== */
+.cd-float, .cd-turn, .cd-case {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.cd-turn {
+  transform: rotateY(0deg) rotateX(0deg);
+}
+
+.cd-back, .cd-edge, .cd-frame, .cd-glass, .cd-hinge {
+  visibility: hidden;
+}
+
+.cover-slot.ready .cd-back, .cover-slot.ready .cd-edge, .cover-slot.ready .cd-frame, .cover-slot.ready .cd-glass, .cover-slot.ready .cd-hinge {
+  visibility: visible;
+}
+
+.cd-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  border: 1px solid #a6c4be4a;
+  background: #121819e0;
+  transform: translateZ(-9px) rotateY(180deg);
+  backface-visibility: hidden;
+}
+
+.cd-edge {
+  position: absolute;
+  background: linear-gradient(90deg, #7e918b7a, #f2fffa8c 42%, #1b242188 58%, #c6e6df7a);
+  border: 1px solid #dcece68a;
+}
+
+.cd-edge-l {
+  left: -9px;
+  width: 18px;
+  height: 100%;
+  transform: rotateY(90deg);
+}
+
+.cd-edge-r {
+  right: -9px;
+  width: 18px;
+  height: 100%;
+  transform: rotateY(90deg);
+}
+
+.cd-edge-t {
+  top: -9px;
+  height: 18px;
+  width: 100%;
+  transform: rotateX(90deg);
+}
+
+.cd-edge-b {
+  bottom: -9px;
+  height: 18px;
+  width: 100%;
+  transform: rotateX(90deg);
+}
+
+.cd-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  border: 1px solid #e6f3ef5c;
+  background: linear-gradient(120deg, #d9eeea1a, #ffffff05 34%, #b5d5d318);
+  box-shadow: inset 2px 2px 3px #ffffff42, inset -2px -2px 3px #9fbab63d, inset 0 0 0 1px #ffffff1f, 0 30px 80px #000c;
+  transform: translateZ(9px);
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+.cd-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: linear-gradient(118deg, transparent 6%, #e8fbf72b 7%, transparent 10%, transparent 30%, #ffffff33 32%, transparent 36%, transparent 58%, #cfe9e51f 60%, transparent 66%, transparent 84%, #ffffff17 86%, transparent 90%);
+  box-shadow: inset 0 0 0 4px #a9cfc910;
+  transform: translateZ(11px);
+  pointer-events: none;
+}
+
+.cd-hinge {
+  position: absolute;
+  left: 4px;
+  top: 1.5%;
+  bottom: 1.5%;
+  width: 9px;
+  background: repeating-linear-gradient(0deg, #dff2ef33 0 2px, #0003 2px 4px);
+  border-right: 1px solid #c3dbd759;
+  border-left: 1px solid #ffffff1f;
+  transform: translateZ(10px);
+  pointer-events: none;
+}
+
+@keyframes cdTurn {
+  0%, 100% {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: rotateY(22deg) rotateX(4deg);
+  }
+  75% {
+    transform: rotateY(-22deg) rotateX(4deg);
+  }
+}
+
+@keyframes cdFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-16px);
+  }
+  75% {
+    transform: translateY(13px);
+  }
+}
+
+.cover-slot.ready .cd-turn {
+  animation: cdTurn 18s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.cover-slot.ready .cd-float {
+  animation: cdFloat 8s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.candidate-cover.ready {
+  opacity: 1;
+}
+
+.cover-stage .arrow {
+  border-radius: 50%;
+  width: 43px;
+  height: 43px;
+  padding: 0;
+  font-size: 23px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.cover-stage .arrow svg {
+  width: 21px;
+  height: 21px;
+  display: block;
+}
+
+.cover-stage .arrow:hover {
+  color: #f3e3c4;
+  border-color: #c8b184;
+}
+
+.cover-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: #151616;
+  border: 1px solid #8d754a44;
+  color: #a99b85;
+  font-size: 13px;
+}
+
+.search-overlay[data-state="FOUND"] .cover-slot {
+  width: min(25vh, 240px, 48vw);
+}
+
+.candidate-cover.particle-handoff {
+  transition: opacity 65ms ease-out;
+}
+
+.candidate-cover {
+  transition: opacity 420ms cubic-bezier(.22, .61, .36, 1);
+}
+
+/* ===== styles/responsive.css ===== */
+/* ==========================================================================
+ * responsive.css · 媒体查询
+ * --------------------------------------------------------------------------
+ * 全站所有 @media 都集中在这里，并且最后加载，
+ * 保证窄屏覆盖与「减少动态效果」降级永远生效。
+ * 基础文件里不要再写 media query。
+ * ========================================================================== */
+
+@media(max-width:600px) {
+  header {
+    top: 25px;
+    left: 22px;
+  }
+  h1 {
+    font-size: 20px;
+  }
+  .toolbar {
+    top: 26px;
+    right: 18px;
+  }
+  .toolbar button {
+    padding: 9px;
+    font-size: 10px;
+  }
+  .toolbar button: last-child {
+    display: none;
+  }
+  header p {
+    max-width: 180px;
+    line-height: 1.8;
+  }
+  .hud {
+    left: 22px;
+    right: 22px;
+    bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .hint {
+    max-width: 145px;
+  }
+  .info {
+    bottom: 95px;
+  }
+}
+
+@media(max-width:700px) {
+  .zoom-control {
+    display: none;
+  }
+}
+
+@media(max-width:650px) {
+  .search-header {
+    padding: 18px 16px;
+    gap: 8px;
+  }
+  .search-header-actions {
+    gap: 3px;
+  }
+  .search-header-actions button {
+    padding: 8px;
+    font-size: 11px;
+  }
+  .memory-anchor {
+    max-width: 53vw;
+  }
+  .memory-anchor p {
+    font-size: 19px;
+  }
+  .composer {
+    margin-top: 22vh;
+  }
+  .search-heading {
+    font-size: 26px;
+  }
+  .composer textarea {
+    font-size: 16px;
+  }
+  .glass-sheet {
+    padding: 16px;
+  }
+  .cover-stage {
+    gap: 14px;
+  }
+  .cover-stage .arrow {
+    width: 34px;
+    height: 34px;
+  }
+  .viewer {
+    padding: 0 12px;
+    margin-top: 30px;
+  }
+  .candidate-reasons {
+    gap: 14px;
+  }
+  .candidate-copy {
+    min-height: 125px;
+  }
+  .candidate-copy h2 {
+    font-size: 22px;
+  }
+  .search-active .neon {
+    translate: 30px -200px 0;
+    scale: .9;
+  }
+  .search-active .corner {
+    visibility: hidden;
+  }
+  .state-card {
+    margin-top: 18vh;
+  }
+  .settings {
+    right: 18px;
+  }
+  .candidate-actions {
+    gap: 6px;
+  }
+  .candidate-actions button {
+    padding: 10px 13px;
+  }
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .search-overlay, .search-overlay *, .neon-spin, .neon-body, .neon-aura, .neon-pool, #stardust i {
+    animation: none!important;
+  }
+  .search-overlay * {
+    transition-duration: .18s!important;
+  }
+  .search-active .world>: not(.neon) {
+    transition: none;
+  }
+  .search-active .neon .n-glow {
+    stroke: #ffb35c!important;
+  }
+  .search-active .neon .n-core {
+    stroke: #fff2d9!important;
+  }
+  .search-active .neon .n-halo {
+    opacity: .28!important;
+  }
+  .search-active .search-lamp, .search-active .glass-sheet: before, .search-active .glass-sheet: after {
+    opacity: 1!important;
+  }
+}
+
+@media(max-width:650px) {
+  .search-active .neon {
+    translate: 30px -300px -230px;
+    scale: .9;
+  }
+  .search-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .search-header-actions #service-button {
+    max-width: 130px;
+    text-align: right;
+  }
+}
+
+@media(max-width:650px) {
+  .memory-anchor {
+    max-height: 29vh;
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+  .memory-additions {
+    max-height: 17vh;
+    padding-left: 12px;
+  }
+  .memory-additions li {
+    font-size: 19px;
+    line-height: 1.7;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .memory-anchor .memory-count {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+}
+</style>
+</head>
+<body>
+<!-- ============================================================================ -->
+  	<!-- 界面骨架 · 角标 / 标题 / 视距工具 -->
+  	<!-- ============================================================================ -->
+  	<div class="corner corner-tl" aria-hidden="true">
+  		<div class="corner-brand">SEEK
+  		</div>
+  		<div class="corner-tag">AI MUSIC RETRIEVAL
+  		</div>
+  	</div>
+  	<div class="corner corner-tr" aria-hidden="true">
+  		<div class="corner-line">FROM VAGUE MEMORY,
+  			<br>FIND YOUR MUSIC
+  		</div>
+  		<div class="corner-tag">COVER · GENRE · ERA · MEMORY
+  		</div>
+  	</div>
+  	<div class="atmosphere" aria-hidden="true">
+  		<canvas id="deepsky">
+  		</canvas>
+  		<div id="stardust">
+  		</div>
+  	</div>
+  	<header>
+  		<div class="eyebrow">THE LISTENING ROOM
+  		</div>
+  		<h1>ORBIT / 01
+  		</h1>
+  		<p>一张唱片，一段悬浮的记忆。
+  		</p>
+  	</header>
+  	<section class="about">
+  		<div class="about-title">SEEK <b>·</b> <span class="seek-cn">寻音</span>
+  		</div>
+  		<div class="about-sub">用模糊的记忆，找回那首歌
+  		</div>
+  		<p class="about-desc">一款通过封面、曲风、年代等模糊印象找回音乐的 AI 工具。
+  		</p>
+  	</section>
+  	<nav class="toolbar">
+  		<label class="zoom-control">视距
+  			<input id="zoom" type="range" min="90" max="135" value="135" aria-label="场景放大比例"><output id="zoom-value">135%</output>
+  		</label>
+  		<button id="replay">重播入场 ↗
+  		</button>
+  		<button id="pause" aria-pressed="false">暂停运动 Ⅱ
+  		</button>
+  	</nav>
+  
+  	<!-- ============================================================================ -->
+  	<!-- 3D 场景 · 唱片机 / 星空 / 霓虹灯牌 -->
+  	<!-- ============================================================================ -->
+  	<main class="viewport" aria-label="3D 专辑收藏，使用 Tab 浏览专辑">
+  		<div class="fit">
+  			<div class="world">
+  				<div class="floor">
+  				</div>
+  				<div class="orbit-line">
+  				</div>
+  				<div class="foot">
+  				</div>
+  				<div class="foot r">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="deck layer">
+  				</div>
+  				<div class="side">
+  				</div>
+  				<div class="deck">
+  					<div class="platter">
+  						<div class="record">
+  							<div class="label"><b>ORBIT</b>33⅓ • STEREO
+  							</div>
+  						</div>
+  					</div>
+  					<div class="spindle">
+  					</div>
+  					<div class="arm">
+  					</div>
+  					<div class="power">
+  					</div>
+  					<div class="speed">DIRECT DRIVE / 33⅓
+  					</div>
+  				</div>
+  				<div id="albums" class="object">
+  				</div>
+  				<div class="neon" aria-hidden="true">
+  					<div class="neon-aura">
+  					</div>
+  					<div class="neon-pool">
+  					</div>
+  					<div class="neon-spin">
+  						<div class="neon-body" data-thickness-mm="30" data-model="extruded-acrylic-neon">
+  							<div class="neon-model">
+  								<div class="sign-plate plate-back">
+  								</div>
+  								<div class="sign-plate plate-front">
+  								</div><i class="sign-rim" style="width:4.513px;transform:translate3d(646.000px,0.000px,0) rotateZ(5.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(650.292px,0.423px,0) rotateZ(16.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(654.419px,1.675px,0) rotateZ(28.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(658.223px,3.708px,0) rotateZ(39.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(661.556px,6.444px,0) rotateZ(50.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(664.292px,9.777px,0) rotateZ(61.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(666.325px,13.581px,0) rotateZ(73.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(667.577px,17.708px,0) rotateZ(84.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:210.200px;transform:translate3d(668.000px,22.000px,0) rotateZ(90.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(668.000px,232.000px,0) rotateZ(95.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(667.577px,236.292px,0) rotateZ(106.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(666.325px,240.419px,0) rotateZ(118.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(664.292px,244.223px,0) rotateZ(129.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(661.556px,247.556px,0) rotateZ(140.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(658.223px,250.292px,0) rotateZ(151.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(654.419px,252.325px,0) rotateZ(163.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(650.292px,253.577px,0) rotateZ(174.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:624.200px;transform:translate3d(646.000px,254.000px,0) rotateZ(180.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(22.000px,254.000px,0) rotateZ(-174.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(17.708px,253.577px,0) rotateZ(-163.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(13.581px,252.325px,0) rotateZ(-151.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(9.777px,250.292px,0) rotateZ(-140.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(6.444px,247.556px,0) rotateZ(-129.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(3.708px,244.223px,0) rotateZ(-118.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(1.675px,240.419px,0) rotateZ(-106.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.423px,236.292px,0) rotateZ(-95.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:210.200px;transform:translate3d(0.000px,232.000px,0) rotateZ(-90.000deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.000px,22.000px,0) rotateZ(-84.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(0.423px,17.708px,0) rotateZ(-73.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(1.675px,13.581px,0) rotateZ(-61.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(3.708px,9.777px,0) rotateZ(-50.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(6.444px,6.444px,0) rotateZ(-39.375deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(9.777px,3.708px,0) rotateZ(-28.125deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(13.581px,1.675px,0) rotateZ(-16.875deg) rotateX(90deg)"></i><i class="sign-rim" style="width:4.513px;transform:translate3d(17.708px,0.423px,0) rotateZ(-5.625deg) rotateX(90deg)"></i><i class="sign-rim" style="width:624.200px;transform:translate3d(22.000px,0.000px,0) rotateZ(0.000deg) rotateX(90deg)"></i>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(-14px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(-7px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(0px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(7px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<svg class="tube-volume" viewBox="0 0 1280 486" style="transform:translateZ(14px)"> <path class="n-tube-wall" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-wall" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-wall" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/></svg>
+  								<div class="neon-face nf-front">
+  									<svg class="neon-svg" viewBox="0 0 1280 486" xmlns="http://www.w3.org/2000/svg" aria-label="SEEK 霓虹灯牌"> <path class="n-tube-shadow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-shadow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-halo" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-halo" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-glow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-glow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-core" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-core" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <g fill="#b6a38a" fill-opacity=".22" stroke="#a08d76" stroke-opacity=".32" stroke-width="2"> <rect x="308" y="97" width="12" height="64" rx="4"/> <rect x="126" y="178" width="13" height="56" rx="4"/> <rect x="232" y="333" width="14" height="57" rx="4"/> <rect x="396" y="198" width="53" height="12" rx="4"/> <rect x="560" y="334" width="13" height="57" rx="4"/> <rect x="800" y="103" width="14" height="57" rx="4"/> <rect x="645" y="198" width="53" height="12" rx="4"/> <rect x="1067" y="97" width="13" height="49" rx="4" transform="rotate(43 1073 122)"/> </g></svg>
+  								</div>
+  								<div class="neon-face nf-back">
+  									<svg class="neon-svg" viewBox="0 0 1280 486" xmlns="http://www.w3.org/2000/svg" aria-label="SEEK 霓虹灯牌"> <path class="n-tube-shadow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-tube-shadow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-tube-shadow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-halo" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-halo" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-halo" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-glow" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-glow" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-glow" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <path class="n-core" d="M325 110 H212 C106 110 106 247 212 247 H260 C319 247 319 340 260 340 H124 C97 340 97 381 124 381 H260 C375 381 375 206 260 206 H212 C162 206 162 151 212 151 H325 C350 151 350 110 325 110 Z"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" data-letter="E1"/> <path class="n-core" d="M569 110 H438 Q395 110 395 156 V337 Q395 382 438 382 H590 Q611 382 611 361 Q611 340 590 340 H448 Q437 340 437 329 V269 H556 Q580 269 580 247 Q580 225 556 225 H437 V165 Q437 152 451 152 H569 Q593 152 593 131 Q593 110 569 110 Z" transform="translate(250 0)" data-letter="E2"/> <path class="n-core" d="M914 110 Q893 110 893 131 V361 Q893 382 914 382 Q935 382 935 361 V286 Q935 271 947 281 L1052 370 Q1066 382 1088 382 Q1109 382 1109 361 Q1109 351 1098 341 L995 246 L1098 151 Q1109 141 1109 131 Q1109 110 1088 110 Q1073 110 1061 121 L947 221 Q935 231 935 215 V131 Q935 110 914 110 Z" data-letter="K"/> <g fill="#b6a38a" fill-opacity=".22" stroke="#a08d76" stroke-opacity=".32" stroke-width="2"> <rect x="308" y="97" width="12" height="64" rx="4"/> <rect x="126" y="178" width="13" height="56" rx="4"/> <rect x="232" y="333" width="14" height="57" rx="4"/> <rect x="396" y="198" width="53" height="12" rx="4"/> <rect x="560" y="334" width="13" height="57" rx="4"/> <rect x="800" y="103" width="14" height="57" rx="4"/> <rect x="645" y="198" width="53" height="12" rx="4"/> <rect x="1067" y="97" width="13" height="49" rx="4" transform="rotate(43 1073 122)"/> </g></svg>
+  								</div><i class="sign-fastener" style="left:11px;top:14px"></i><i class="sign-fastener" style="left:647px;top:14px"></i><i class="sign-fastener" style="left:11px;top:232px"></i><i class="sign-fastener" style="left:647px;top:232px"></i>
+  							</div>
+  						</div>
+  					</div>
+  				</div>
+  			</div>
+  		</div>
+  	</main>
+  	<section class="info" aria-live="polite"><small id="meta"></small>
+  		<h2 id="title">
+  		</h2>
+  		<p id="artist">
+  		</p>
+  	</section>
+  	<footer class="hud">
+  		<div><span class="dot"></span><span id="status">ASSEMBLING THE COLLECTION</span>
+  		</div>
+  		<div class="hint">靠近减速 · 悬停展开
+  			<br>移开归位 / 触屏轻点查看
+  		</div>
+  	</footer>
+  	<div id="progress">
+  	</div>
+  <!-- ============================================================================ -->
+  <!-- 首页按钮 · 进入搜索 / 编辑CD集 -->
+  <!-- ============================================================================ -->
+  <button class="orbit-entry" data-testid="launch-search" id="orbit-search">点击 SEEK，开始寻找 ↗</button>
+  <button class="orbit-entry secondary" data-testid="open-cd-editor" id="custom-entry">编辑CD集</button>
+  
+  <!-- ============================================================================ -->
+  <!-- 编辑界面 · 编辑CD集 + 单张唱片弹窗 -->
+  <!-- ============================================================================ -->
+  <section class="cd-editor" id="cd-editor" hidden>
+   <header class="cd-editor-head"><h2>编辑CD集</h2></header>
+   <p class="cd-editor-hint">按住封面拖动排序</p>
+   <div class="cd-grid" data-testid="cd-grid" id="cd-grid"></div>
+   <footer class="cd-editor-foot"><button class="cd-glass-btn primary" data-testid="cd-add" id="cd-add">＋ 添加唱片</button><button class="cd-glass-btn" data-testid="close-cd-editor" id="cd-done">完成</button></footer>
+  </section>
+  <div class="cd-modal-backdrop" data-testid="cd-modal" id="cd-modal" hidden>
+   <div class="cd-modal-card" role="dialog" aria-modal="true" aria-label="编辑唱片详情">
+    <button class="cd-modal-close" id="cd-modal-close" aria-label="关闭">×</button>
+    <h3 id="cd-modal-title">编辑唱片</h3>
+    <label for="cd-f-title">专辑名</label><input id="cd-f-title" type="text" maxlength="120">
+    <label for="cd-f-artist">艺人 / 乐队</label><input id="cd-f-artist" type="text" maxlength="120">
+    <label for="cd-f-cover">封面图片地址（留空则自动生成）</label><input id="cd-f-cover" type="text" placeholder="https://…/cover.jpg 或 data:image/…">
+    <label for="cd-f-year">年份</label><input id="cd-f-year" type="text" maxlength="12">
+    <label for="cd-f-genre">曲风</label><input id="cd-f-genre" type="text" maxlength="60">
+    <p id="cd-modal-notice" role="status"></p>
+    <div class="state-actions"><button class="primary" id="cd-save">保存</button><button id="cd-delete">删除这张唱片</button></div>
+   </div>
+  </div>
+  
+  <!-- ============================================================================ -->
+  <!-- 搜索界面 · 粒子画布 + 搜索层 -->
+  <!-- ============================================================================ -->
+  <canvas id="search-particles" aria-hidden="true"></canvas>
+  <section class="search-overlay" id="search-overlay" role="dialog" aria-modal="true" aria-label="从记忆寻找音乐" data-state="ORBIT" hidden>
+   <div class="compose-scrim" aria-hidden="true"></div>
+   <header class="search-header">
+    <aside class="memory-anchor" id="memory-anchor" hidden><small>YOUR MEMORY</small><p id="memory-text"></p><span class="memory-count" id="memory-count"></span><ol class="memory-additions" id="memory-additions" aria-label="补充的记忆" aria-live="polite" hidden></ol><button class="text-button" id="edit-memory">编辑</button></aside>
+    <div class="search-header-actions"><button class="text-button" id="service-button">连接搜索服务</button><button data-testid="close-search" id="close-search" aria-label="关闭搜索，返回唱片机">返回唱片机 ×</button></div>
+   </header>
+   <form class="composer" id="query-composer" novalidate><h2 class="search-heading">你还记得什么？</h2><div class="glass-sheet"><label class="sr-only" for="query-input">描述你对歌曲或专辑的记忆</label><textarea data-testid="search-input" id="query-input" maxlength="2000" placeholder="日语歌，封面好像有很多黑色的鞋" required></textarea><button type="button" class="example-roller" data-testid="example-roller" id="example-roller" aria-label="示例描述，点击即可一键录入并开始寻找"><span class="example-roller-label">试试这些</span><span class="example-roller-text" id="example-roller-text">日语歌，封面好像有很多黑色的鞋</span><span class="example-roller-arrow">↗</span></button><div class="composer-footer"><small>记错也没关系。</small><button class="primary" data-testid="submit-search" id="submit-search" type="submit">开始寻找 →</button></div></div><p class="live-notice" id="composer-notice"></p></form>
+   <div class="search-status" id="search-status" hidden><h2 class="search-heading"><span class="status-light"></span><span id="status-title">正在从这些记忆里寻找……</span></h2><p id="status-detail"></p></div>
+   <section class="viewer" id="candidate-viewer" hidden>
+    <div class="cover-stage" id="cover-stage"><button class="arrow" data-testid="previous-candidate" id="previous-candidate" aria-label="上一张候选"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5 7 12l7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="cover-slot" id="cover-slot"><div class="cd-float"><div class="cd-turn"><div class="cd-case"><div class="cd-back"></div><div class="cd-edge cd-edge-l"></div><div class="cd-edge cd-edge-r"></div><div class="cd-edge cd-edge-t"></div><div class="cd-edge cd-edge-b"></div><img class="candidate-cover" data-testid="candidate-cover" id="candidate-cover" alt=""><div class="cd-frame"></div><div class="cd-glass"></div><div class="cd-hinge"></div></div></div></div><div class="cover-error" id="cover-error" hidden>封面暂时无法加载</div></div><button class="arrow" data-testid="next-candidate" id="next-candidate" aria-label="下一张候选"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5 17 12l-7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+    <div class="candidate-copy"><h2 data-testid="candidate-title" id="candidate-title"></h2><p class="artist" id="candidate-artist"></p><p class="year-genre" id="candidate-meta"></p><div class="candidate-reasons" id="candidate-reasons"></div></div>
+    <div class="candidate-actions" id="candidate-actions"><button class="primary" data-testid="accept-candidate" id="accept-candidate">就是它</button><button data-testid="reject-candidate" id="reject-candidate">不是这张</button><button id="reject-all">这些都不像</button><button data-testid="favorite-candidate" id="favorite-candidate" title="收藏到主页唱片机">★ 收藏</button></div>
+    <div class="candidate-position" id="candidate-position"><span id="candidate-count"></span><button class="text-button" data-testid="show-overview" id="show-overview">查看全部候选</button></div>
+    <section id="found-details" hidden><p class="found-meta" id="found-meta"></p><ol class="track-list" id="track-list"></ol><p class="live-notice" id="track-notice"></p><div class="state-actions"><button class="primary" id="found-song">找到那首歌了</button><button id="album-only">专辑对了，但歌曲还没找到</button><button id="favorite-found">★ 收藏到唱片机</button><button class="text-button" id="back-candidates">返回候选</button></div></section>
+   </section>
+   <section class="state-card" id="question-card" hidden><h2 class="search-heading" id="question-text"></h2><p id="question-note"></p><div class="question-choices" id="question-choices"><button data-answer="yes">有</button><button data-answer="no">没有</button><button data-answer="unknown">不确定</button></div></section>
+   <section class="state-card" id="empty-card" hidden><h2 class="search-heading">这些记忆还没有拼出答案。</h2><p>也可能不是你记错了，而是我们还没有收录它。</p><div class="state-actions"><button id="empty-add" class="primary">再告诉我一点</button><button id="relax-query">放宽部分线索</button><button id="rewrite-query">重新描述</button></div></section>
+   <section class="state-card" id="error-card" hidden><h2 class="search-heading" id="error-title"></h2><p id="error-message"></p><div class="state-actions"><button class="primary" data-testid="retry-search" id="retry-search">重试</button><button id="error-service">连接搜索服务</button><button id="error-edit">编辑记忆</button></div></section>
+   <section class="overview" id="candidate-overview" hidden><div class="overview-title"><h2 class="search-heading">可能的唱片</h2><button id="close-overview">返回单张</button></div><div class="overview-grid" id="overview-grid"></div></section>
+   <footer class="search-bottom" id="search-bottom" hidden><p class="live-notice" id="session-notice" role="status"></p><button class="text-button" id="add-memory">＋ 再补充一点记忆</button><form class="supplement" id="supplement-form" hidden><span class="supplement-hint">输入更多记忆</span><label for="supplement-input">还有什么细节？</label><div class="supplement-row"><input id="supplement-input" maxlength="500" autocomplete="off" required placeholder="我突然想起来，好像不是一双鞋，是很多双。"><button type="submit" class="primary">加入记忆 →</button></div></form></footer>
+   <form class="settings" id="service-settings" hidden><h3>连接你的搜索服务</h3><label for="endpoint-input">搜索接口地址</label><input id="endpoint-input" type="url" placeholder="https://你的服务/search" required><p>此页面不会生成搜索候选。连接后，你提交的记忆将发送到这个地址，由服务返回专辑与解释。</p><p id="service-notice" role="status"></p><div class="state-actions"><button class="primary" type="submit">保存连接</button><button type="button" id="close-settings">取消</button></div></form>
+   <div id="search-announcement" class="sr-only" role="status" aria-live="polite"></div>
+  </section>
+  
+  <!-- ============================================================================ -->
+  <!-- 灯光 · 搜索态光锥 -->
+  <!-- ============================================================================ -->
+  <div class="search-lamp" aria-hidden="true"></div>
+
+  <!-- 唯一入口：ES Module。所有模块依赖都从这里开始装配 -->
+<script>
+/* ===== config/seek-config.js ===== */
+/*
+ * Seek 前端 · 环境配置
+ * ---------------------------------------------------------------------------
+ * 所有环境差异集中在这里，业务代码不得写死域名或端口。
+ *
+ * environment        : 'development' | 'production'
+ *                     决定是否显示「服务设置」等开发工具。
+ * apiBase            : 后端 API 前缀。默认走同源 /api/v1，避免 CORS。
+ *                     本地直连 FastAPI 时可临时改成 'http://127.0.0.1:8000'。
+ * requestTimeoutMs   : 单次请求等待上限。真实检索首次要加载模型，建议放宽。
+ * demoEnabled        : 是否允许用户主动进入「示例演示」。
+ * enableServiceSettings : 是否显示手动填写接口地址的开发面板。
+ * particle           : 粒子数量上限（桌面 / 移动）。
+ * seekBackend.searchPath : 兼容旧版 seek 后端（无 /api/v1 前缀）时的路径。
+ */
+const seekConfig = {
+  environment: 'development',
+
+  apiBase: '',
+
+  requestTimeoutMs: 60000,
+
+  demoEnabled: true,
+
+  enableServiceSettings: true,
+
+  particle: {
+    desktopLimit: 52000,
+    mobileLimit: 22000
+  },
+
+  /* 兼容 github.com/Violet-Galaxy233/seek 现有实现：
+     它的 /search、/health、/covers 都挂在根路径，没有 /api/v1 前缀。 */
+  seekBackend: {
+    searchPath: '/search',
+    healthPath: '/health',
+    coversPath: '/covers'
+  },
+
+  /* 前端版本号，仅用于 SeekSearch.debug() 输出 */
+  frontendVersion: '0.2.0-modular'
+};
+
+var __dropped_default__ = seekConfig;
+
+/* ===== js/shared/dom.js ===== */
+/*
+ * Seek 前端 · DOM 小工具
+ * ---------------------------------------------------------------------------
+ * 只放真正跨模块复用的 DOM / 存储访问函数。
+ * 不要往这里继续塞业务逻辑（业务逻辑请放到所属领域模块）。
+ */
+
+/* 按 CSS 选择器取第一个元素 */
+const $ = (selector) => document.querySelector(selector);
+
+/* 按 id 取元素 —— 页面里绝大多数 JS 钩子用 id */
+const el = (id) => document.getElementById(id);
+
+/* 按选择器取全部元素（返回真数组，方便直接 forEach / map） */
+const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+
+/* Promise 版延时，配合 async/await 使用 */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* localStorage 读取：隐私模式 / 禁用存储时不抛错 */
+const safeRead = (key, backup = '') => {
+  try { return localStorage.getItem(key) || backup; } catch { return backup; }
+};
+
+/* localStorage 写入：失败静默（不影响主流程） */
+const safeWrite = (key, value) => {
+  try { localStorage.setItem(key, value); } catch {}
+};
+
+/* sessionStorage 读写，同样容错 */
+const safeSessionRead = (key, backup = null) => {
+  try { return sessionStorage.getItem(key) || backup; } catch { return backup; }
+};
+
+const safeSessionWrite = (key, value) => {
+  try { sessionStorage.setItem(key, value); } catch {}
+};
+
+/* 显示 / 隐藏一组面板：只有列在 ids 里的面板可见 */
+const showOnlyPanels = (allIds, visibleIds) => {
+  for (const id of allIds) {
+    const node = el(id);
+    if (node) node.hidden = !visibleIds.includes(id);
+  }
+};
+
+/* 无副作用地设置文本（顺带防住 null 节点） */
+const setText = (id, text) => {
+  const node = el(id);
+  if (node) node.textContent = text;
+};
+
+/* ===== js/shared/motion.js ===== */
+/*
+ * Seek 前端 · 动效参数与缓动
+ * ---------------------------------------------------------------------------
+ * 只放缓动函数与「减少动画」偏好判断。不放任何 DOM 操作。
+ *
+ * 命名对应关系（沿用了页面里原有的短名，避免大范围改动）：
+ *   mix   → 线性插值
+ *   clamp → 夹到 [0,1]
+ *   smooth→ smoothstep
+ *   cubic → 三次贝塞尔
+ */
+
+/* 用户在系统里开启「减少动态效果」时，所有大动画都要退化成淡入淡出 */
+const motion = matchMedia('(prefers-reduced-motion: reduce)');
+
+/* 该走降级路径吗？粒子形变、持续漂浮都要先问它 */
+const prefersReducedMotion = () => motion.matches;
+
+const mix = (a, b, t) => a + (b - a) * t;
+
+const lerp = mix;
+
+const clamp = (v) => Math.max(0, Math.min(1, v));
+
+const sat = clamp;
+
+const smooth = (t) => t * t * (3 - 2 * t);
+
+/* 三次贝塞尔：cubic(x1,y1,x2,y2,t) 与 CSS 同名曲线一致 */
+const cubic = (a, b, c, d, t) => {
+  const u = 1 - t;
+  return a * u * u * u + 3 * b * u * u * t + 3 * c * u * t * t + d * t * t * t;
+};
+
+/* 五次缓入缓出，粒子汇聚阶段使用 */
+const easeInOutQuint = (x) => x * x * x * (x * (x * 6 - 15) + 10);
+
+/* 时长常量：业务/视觉动效统一引用这里，避免散落魔法数字 */
+const DURATION = {
+  fast: 180,
+  normal: 320,
+  slow: 620,
+  morph: 1150,
+  crossfade: 220
+};
+
+/* ===== js/scene/deep-sky.js ===== */
+/*
+ * Seek 前端 · 深空背景与星尘
+ * ---------------------------------------------------------------------------
+ * 首页氛围层，与搜索、唱片机互不依赖。
+ *   · #deepsky  : canvas，绘制银河星带、倾斜旋涡星系、星云与密集星场
+ *   · #stardust : DOM 星点，带 twinkle 动画
+ * 导出 createDeepSky()，由 main.js 在启动时调用一次。
+ * 想调节氛围：改 SOFT / 星点数量 / pal 调色板。
+ */
+function createDeepSky() {
+  /* ---- 星尘：静态、无网络资源，避免闪烁与额外请求 ---- */
+  // Static, seeded starlight: no flicker or network assets.
+  {const dust=document.querySelector('#stardust');let seed=4187;const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);for(let i=0;i<110;i++){let left,top;if(i%2===0){const x=random()*130-15;left=x;top=72-x*.42+(random()-.5)*26}else{left=random()*100;top=random()*100}const big=i%23===0,size=big?2:(i%5===0?1.2+random()*.5:.6+random()*.7),o=big?.62+random()*.34:.22+random()*.5,t=random(),col=t<.2?'#cfe0ff':t<.34?'#ffe6c4':'#d5d6c8',star=document.createElement('i');let css='left:'+left.toFixed(2)+'%;top:'+top.toFixed(2)+'%;width:'+size.toFixed(2)+'px;height:'+size.toFixed(2)+'px;background:'+col+';--o:'+o.toFixed(2)+';opacity:'+o.toFixed(2)+';box-shadow:0 0 '+(big?8:5)+'px '+(big?'#dfe6ff5c':'#d2c6a333');if(i%3===0)css+=';animation:twinkle '+(4+random()*6).toFixed(2)+'s ease-in-out '+(random()*6).toFixed(2)+'s infinite alternate';star.style.cssText=css;dust.append(star)}}
+
+  /* ---- 深空画布 ---- */
+  {const cvs=document.querySelector('#deepsky'),ctx=cvs.getContext('2d');let s2=90210;const rnd=()=>((s2=(s2*1664525+1013904223)>>>0)/4294967296),R=(a,b)=>a+rnd()*(b-a),RI=(a,b)=>Math.floor(a+rnd()*(b-a+1));let cache={};
+  const soft=(c,a)=>{const k=c+'|'+a;let g=cache[k];if(!g){g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba('+c+','+a+')');g.addColorStop(.45,'rgba('+c+','+(a*.38)+')');g.addColorStop(1,'rgba('+c+',0)');cache[k]=g}return g};
+  const blob=(x,y,r,c,a)=>{a=Math.round(a*250)/250;ctx.save();ctx.translate(x,y);ctx.scale(r,r);ctx.fillStyle=soft(c,a);ctx.fillRect(-1,-1,2,2);ctx.restore()};
+  const dot=(x,y,r,c,a)=>{ctx.globalAlpha=a;ctx.fillStyle=c;ctx.fillRect(x,y,r,r)};
+  const drawSky=()=>{const w=innerWidth,h=innerHeight,dpr=Math.min(devicePixelRatio||1,1.5),m=Math.min(w,h);cvs.width=w*dpr;cvs.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);cache={};ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1;
+  blob(w*.20,h*.22,m*.95,'62,72,152',.042);blob(w*.82,h*.78,m*.88,'84,58,142',.032);blob(w*.60,h*.30,m*.72,'40,58,120',.02);blob(w*.16,h*.86,m*.68,'122,68,108',.02);
+  const P=t=>[(-.10+t*1.20)*w,(.95-t*.88)*h+Math.sin(t*7.4+1.05)*h*.062+Math.sin(t*2.3-.6)*h*.03];
+  const per=t=>{const a=P(Math.max(0,t-.01)),b=P(Math.min(1,t+.01));const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;return[-dy/L,dx/L]};
+  const HW=t=>m*(.055+.085*Math.abs(Math.sin(t*3.4+.5)));
+  const pal=['104,124,224','150,112,232','74,168,208','206,196,236','160,176,244'];
+  for(let i=0;i<150;i++){const t=rnd(),p=P(t),n=per(t),o=(rnd()-.5)*2*HW(t);blob(p[0]+n[0]*o,p[1]+n[1]*o,m*R(.09,.30),pal[RI(0,pal.length-1)],R(.005,.016))}
+  for(let i=0;i<12;i++){const t=rnd(),p=P(t),n=per(t),o=(rnd()-.5)*HW(t);blob(p[0]+n[0]*o,p[1]+n[1]*o,m*R(.03,.08),'208,218,255',R(.012,.028))}
+  ctx.globalCompositeOperation='source-over';
+  for(let i=0;i<46;i++){const t=rnd(),p=P(t),n=per(t),o=(rnd()-.5)*1.35*HW(t);blob(p[0]+n[0]*o,p[1]+n[1]*o,m*R(.025,.10),'2,3,7',R(.10,.26))}
+  ctx.globalCompositeOperation='lighter';
+  const gx=w*.755,gy=h*.245,gr=m*.17,rot=-.62,tilt=.44;
+  ctx.save();ctx.translate(gx,gy);ctx.rotate(rot);ctx.scale(1,tilt);
+  blob(0,0,gr*1.9,'96,108,190',.016);blob(0,0,gr*1.05,'170,182,246',.026);blob(0,0,gr*.38,'228,236,255',.08);blob(0,0,gr*.14,'255,253,246',.115);
+  for(let arm=0;arm<2;arm++)for(let i=0;i<210;i++){const t=i/210,th=arm*Math.PI+t*3.5,rr=gr*(.16+t*.96);blob(Math.cos(th)*rr,Math.sin(th)*rr,gr*R(.02,.08),'196,208,255',R(.004,.012))}
+  ctx.restore();
+  const cosr=Math.cos(rot),sinr=Math.sin(rot);
+  const gp=(rr,th)=>{const x0=Math.cos(th)*rr,y0=Math.sin(th)*rr*tilt;return[gx+x0*cosr-y0*sinr,gy+x0*sinr+y0*cosr]};
+  for(let i=0;i<1000;i++){const t=Math.pow(rnd(),.75),th=RI(0,1)*Math.PI+t*3.5,rr=gr*(.16+t*.96),q=gp(rr+(rnd()-.5)*rr*.12,th+(rnd()-.5)*.16);dot(q[0],q[1],R(.3,.9),'218,228,255',R(.05,.26))}
+  for(let i=0;i<3;i++){const x=rnd()*w,y=rnd()*h*.8,r=m*R(.018,.04);ctx.save();ctx.translate(x,y);ctx.rotate(rnd()*3.14);ctx.scale(1,R(.3,.6));blob(0,0,r,'200,210,255',.05);ctx.restore()}
+  for(let i=0;i<820;i++){const x=rnd()*w,y=rnd()*h,c=rnd();dot(x,y,R(.35,1.25),c<.2?'#cfe0ff':c<.34?'#ffe6c4':'#dfe0d6',R(.16,.8))}
+  for(let i=0;i<1500;i++){const t=rnd(),p=P(t),n=per(t),o=(rnd()-.5)*2*HW(t)*Math.pow(rnd(),.5),c=rnd();dot(p[0]+n[0]*o,p[1]+n[1]*o,R(.35,1.3),c<.22?'#cfe0ff':c<.36?'#ffe6c4':'#dfe0d6',R(.16,.85))}
+  for(let i=0;i<11;i++){const t=rnd(),p=P(t),n=per(t),o=(rnd()-.5)*HW(t),cx=p[0]+n[0]*o,cy=p[1]+n[1]*o,cr=m*R(.02,.06);for(let j=0;j<26;j++){const a=rnd()*6.283,d=Math.pow(rnd(),.6)*cr;dot(cx+Math.cos(a)*d,cy+Math.sin(a)*d,R(.35,1.1),'#dfe6ff',R(.2,.9))}}
+  ctx.globalAlpha=1;
+  for(let i=0;i<13;i++){const onR=rnd()<.6,p=onR?P(rnd()):[rnd()*w,rnd()*h],x=p[0],y=p[1],f=R(16,34);blob(x,y,f*.5,'200,216,255',.2);const fg=ctx.createLinearGradient(x-f,0,x+f,0);fg.addColorStop(0,'rgba(214,228,255,0)');fg.addColorStop(.5,'rgba(236,243,255,.5)');fg.addColorStop(1,'rgba(214,228,255,0)');ctx.fillStyle=fg;ctx.fillRect(x-f,y-.35,f*2,.7);const fv=ctx.createLinearGradient(0,y-f,0,y+f);fv.addColorStop(0,'rgba(214,228,255,0)');fv.addColorStop(.5,'rgba(236,243,255,.36)');fv.addColorStop(1,'rgba(214,228,255,0)');ctx.fillStyle=fv;ctx.fillRect(x-.35,y-f,.7,f*2)}
+  ctx.globalCompositeOperation='source-over'};
+  drawSky();let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawSky,180)})}
+  
+  // Replace cover with a local path / data URL to use your own square album artwork.
+
+  return {
+    /* 重新按视口尺寸绘制一次 */
+    redraw: () => { try { drawSky(); } catch {} },
+    stop: () => {}
+  };
+}
+
+/* ===== js/scene/orbit-scene.js ===== */
+/*
+ * Seek 前端 · 首页 3D 唱片机与环绕唱片
+ * ---------------------------------------------------------------------------
+ * 负责：唱片盒构建、入场动画、环绕轨道、鼠标临近减速、选中 / 取消、
+ *       键盘可达性、缩放、resize 与主渲染循环。
+ *
+ * 对外只暴露一个工厂，内部 DOM（.world / .fit / .viewport）不对外泄漏：
+ *   const scene = createOrbitScene({ root, onSelect });
+ *   scene.setAlbums(albums)   // 由 library 变化时调用
+ *   scene.pause() / resume()
+ *   scene.setSearchActive(true/false)
+ *   scene.reveal()            // 重播入场
+ *   scene.destroy()
+ *
+ * 依赖：shared/motion（缓动）、scene/artwork-generator（示例封面兜底）。
+ * 注意：本模块不感知搜索业务，搜索态只通过 setSearchActive 切换视觉。
+ */
+function createOrbitScene({ root, initialAlbums = [], onSelect = () => {}, generateArtwork }) {
+  /* 搜索态标志：由 setSearchActive() 维护，替代旧的 window.seekSearchActive 全局 */
+  let searchActive = false;
+  const fit=document.querySelector('.fit'),info=document.querySelector('.info');
+  let items=[],albums=initialAlbums.slice();function buildCases(){root.replaceChildren();items=albums.map((a,i)=>{let el=document.createElement('div');el.className='case';el.dataset.id=a.id||'';el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',a.title+' — '+a.artist);el.innerHTML='<div class="back"><img class="art" draggable="false" alt=""></div><div class="face"><img class="art" draggable="false" alt=""><div class="glass"></div></div><div class="edge"></div><div class="edge right"></div><div class="edge top"></div><div class="edge bottom"></div><div class="hinge"></div>';const cover=a.cover||generateArtwork(a,i);el.querySelectorAll('img').forEach(img=>img.src=cover);root.append(el);el.addEventListener('dblclick',e=>{e.stopPropagation();const id=a.id;if(id&&window.SeekSearch&&window.SeekSearch.editRecord)window.SeekSearch.editRecord(id)});el.addEventListener('focus',()=>{if(!pointerDown)select(i,'keyboard')});el.addEventListener('blur',()=>{if(mode==='keyboard')clear()});el.addEventListener('click',e=>{if(e.pointerType==='touch'||touch){selected===i?clear():select(i,'touch')}else if(!selectedValid())select(i,'mouse')});return {el,lift:0,rect:null,source:null};});}buildCases();
+  let selected=-1,mode='',touch=false,pointerDown=false,pointer={x:-9999,y:-9999},scale=1,phase=0,spin=0,speed=1,paused=false,start=performance.now(),last=start,elapsed=0,hoverAway=0;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let intro=!reduced;
+  function selectedValid(){return selected>=0}function select(i,m){if(intro)return;if(selected===i)return;selected=i;mode=m;items[i].source=items[i].el.getBoundingClientRect();document.querySelector('#title').textContent=albums[i].title;document.querySelector('#artist').textContent=albums[i].artist;document.querySelector('#meta').textContent=String(i+1).padStart(2,'0')+' / '+albums[i].genre+' / '+albums[i].year;info.classList.add('visible');hoverAway=0;}function clear(){selected=-1;mode='';info.classList.remove('visible')}
+  function resize(){scale=Math.min(innerWidth/1370,innerHeight/1100,1.35)*Number(document.querySelector("#zoom").value)/100;fit.style.transform=`scale(${scale})`;clear()}addEventListener('resize',resize);resize();document.querySelector('#zoom').addEventListener('input',e=>{document.querySelector('#zoom-value').value=e.target.value+'%';resize()});
+  addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;touch=false;pointer={x:e.clientX,y:e.clientY}});document.documentElement.addEventListener('pointerleave',()=>{pointer={x:-9999,y:-9999};if(mode==='mouse')clear()});addEventListener('pointerdown',e=>{pointerDown=true;touch=e.pointerType==='touch';if(touch&&!e.target.closest('.case'))clear()});addEventListener('pointerup',()=>pointerDown=false);addEventListener('keydown',e=>{if(e.key==='Escape')clear();if((e.key==='Enter'||e.key===' ')&&document.activeElement.classList.contains('case')){e.preventDefault();let i=items.findIndex(t=>t.el===document.activeElement);selected===i?clear():select(i,'keyboard')}});
+  document.querySelector('#replay').onclick=()=>{clear();phase=0;elapsed=0;intro=true;paused=false;speed=1;revealed=false;document.querySelector('.world').classList.remove('tilted');document.querySelector('.about').classList.remove('show');document.querySelector('.neon').classList.remove('show');document.querySelector('.neon').classList.remove('on');document.body.classList.remove('lit');document.querySelector('#pause').textContent='暂停运动 Ⅱ';document.querySelector('#pause').setAttribute('aria-pressed','false');document.querySelector('#progress').style.opacity='1'};
+  document.querySelector('#pause').onclick=e=>{paused=!paused;e.currentTarget.textContent=paused?'继续运动 ▷':'暂停运动 Ⅱ';e.currentTarget.setAttribute('aria-pressed',String(paused))};
+  let revealed=false;function reveal(){if(revealed)return;revealed=true;document.querySelector('.world').classList.add('tilted');document.querySelector('.fit').classList.add('down');document.querySelector('.about').classList.add('show');document.querySelector('.neon').classList.add('show');setTimeout(function(){document.querySelector('.neon').classList.add('on');document.body.classList.add('lit')},260)}if(reduced)setTimeout(reveal,500);
+  // —— 缓动/插值工具 ——
+  // mix   : 线性插值 a→b（t∈[0,1]）
+  // clamp : 把数值夹到 [0,1]
+  // smooth: smoothstep 平滑曲线（首尾缓、中间快）
+  const mix=(a,b,t)=>a+(b-a)*t,clamp=v=>Math.max(0,Math.min(1,v)),smooth=t=>t*t*(3-2*t);
+  // A single entry rail: covers streak in from the right close to the viewer,
+  // hold their front art face-on as they cross screen centre for a clear read,
+  // then turn outward and swing onto the clockwise orbit at the left tangent
+  // (x=-443,z=0), settling into the ring.
+  const entrySpeed=5.4,entryTravel=1/3; let orbitStep,entryGap,duration,orbitRadius; function syncGeometry(){orbitStep=Math.PI*2/albums.length;entryGap=orbitStep/entrySpeed;duration=(albums.length-1)*entryGap+entryTravel;orbitRadius=Math.max(443,albums.length*27)}syncGeometry();
+  function cubic(a,b,c,d,t){let u=1-t;return a*u*u*u+3*b*u*u*t+3*c*u*t*t+d*t*t*t}
+  
+  // ============================================================================
+  // 唱片机 · 轨道姿态计算（入场 / 环绕）
+  // ============================================================================
+  function sleevePose(i,time,anglePhase,entering){
+   const age=time-i*entryGap,t=clamp(age/entryTravel);
+   const theta=Math.PI*1.5-(anglePhase-entryTravel*entrySpeed)+i*orbitStep;
+   if(entering&&age<entryTravel){
+    const tail=1-smooth(t);
+    // Face showcase: turn face-on (0°) approaching centre, hold it across the
+    // middle so the artwork is readable, then turn outward (-90°) to enter.
+    const t1=.35,t2=.65;
+    const ry=t<t1?-40*(1-smooth(t/t1)):t<t2?0:-90*smooth((t-t2)/(1-t2));
+    return {theta,age,
+     x:cubic(800,363,-443,-443,t),
+     y:cubic(-650,-422,-2,-2,t),
+     z:cubic(240,156,266,0,t),
+     ry,rx:18*tail,rz:-5*tail,s:1+tail};
+   }
+   return {theta,age,x:Math.sin(theta)*orbitRadius,y:-2,z:Math.cos(theta)*orbitRadius,
+    ry:theta*180/Math.PI,rx:0,rz:0,s:1};
+  }
+  function inside(r,pad=0){return r&&pointer.x>=r.left-pad&&pointer.x<=r.right+pad&&pointer.y>=r.top-pad&&pointer.y<=r.bottom+pad}
+  function distance(r){return Math.hypot(Math.max(r.left-pointer.x,0,pointer.x-r.right),Math.max(r.top-pointer.y,0,pointer.y-r.bottom))}
+  
+  // ============================================================================
+  // 唱片机 · 主渲染循环
+  // ============================================================================
+  function frame(now){let dt=Math.min((now-last)/1000,.04);last=now;if(!paused)elapsed+=dt;let nearest=1e6;
+  if(!intro&&!touch&&!searchActive){for(const item of items){if(item.rect)nearest=Math.min(nearest,distance(item.rect))}if(selected<0){let hit=document.elementFromPoint(pointer.x,pointer.y)?.closest('.case');if(hit){let i=items.findIndex(t=>t.el===hit);if(i>=0)select(i,'mouse')}}else if(mode==='mouse'){const it=items[selected];if(inside(it.source,20)||inside(it.rect,22)){hoverAway=0}else{hoverAway+=dt;if(hoverAway>.14)clear()}}}
+  let target=searchActive?.06:selectedValid()?.045:mix(.13,1,smooth(clamp(nearest/(145*scale))));speed=mix(speed,target,1-Math.exp(-dt*8));if(!paused&&(intro||!reduced)){const orbitRate=intro?entrySpeed:mix(entrySpeed,.19,smooth(clamp((elapsed-duration)/0.4)));phase+=dt*orbitRate*(intro?1:speed);spin-=dt*26*(intro?1:speed)}
+  if(intro&&elapsed>=duration){intro=false;setTimeout(reveal,120)}items.forEach((it,i)=>{let {theta,age,x,y,z,ry,rx,rz,s}=sleevePose(i,elapsed,phase,intro);it.el.style.visibility=intro&&age<0?'hidden':'visible';
+  
+  it.lift=mix(it.lift,selected===i?1:0,1-Math.exp(-dt*9));let l=it.lift;let facing=((ry+180)%360+360)%360-180;ry=mix(ry,ry-facing,l);x=mix(x,0,l);y=mix(y,-180,l);z=mix(z,170,l);s*=1+l*.72;it.el.style.transform=`translate3d(${x}px,${y}px,${z}px) rotateY(${ry}deg) rotateX(${mix(rx,45,l)}deg) rotateZ(${rz}deg) scale(${s})`;it.el.querySelectorAll('.art').forEach(img=>img.style.filter=`saturate(.84) brightness(${selectedValid()&&selected!==i?.44:mix(.8,1.13,(Math.cos(theta)+1)/2)})`);it.el.setAttribute('aria-expanded',String(selected===i));});
+  document.querySelector('.record').style.transform=`rotate(${spin}deg)`;for(const it of items)it.rect=it.el.getBoundingClientRect();document.querySelector('#status').textContent=intro?'ASSEMBLING THE COLLECTION':paused?'MOTION PAUSED':selectedValid()?'SLEEVE NOTES / 专辑详情':speed<.8?'SLOW MOTION / 靠近聆听':albums.length+' RECORDS / IN ORBIT';document.querySelector('#progress').style.width=clamp(elapsed/duration)*100+'%';if(!intro)document.querySelector('#progress').style.opacity='0';requestAnimationFrame(frame)}requestAnimationFrame(frame);
+  
+  // ============================================================================
+  return {
+    setAlbums(next) { albums = next.slice(); syncGeometry(); buildCases(); },
+    getAlbums() { return albums.slice(); },
+    reveal,
+    clear,
+    pause() { paused = true; },
+    resume() { paused = false; },
+    setSearchActive(active) { searchActive = !!active; document.body.classList.toggle('search-active', !!active); },
+    getSelected() { return selected; },
+    destroy() { root.replaceChildren(); }
+  };
+}
+
+/* ===== js/scene/artwork-generator.js ===== */
+/*
+ * Seek 前端 · 程序化封面生成器
+ * ---------------------------------------------------------------------------
+ * 只服务「示例演示」：按专辑配色画一张 600×600 的抽象封面。
+ * Live Search 必须使用后端返回的真实封面，不得调用本函数伪造封面。
+ */
+function generateArtwork(a,i){if(!a.colors)a={...a,colors:['#182430','#3d6f86','#d9c5a0']};const c=document.createElement('canvas');c.width=c.height=600;const x=c.getContext('2d');let g=x.createLinearGradient(0,0,600,600);g.addColorStop(0,a.colors[0]);g.addColorStop(1,a.colors[1]);x.fillStyle=g;x.fillRect(0,0,600,600);x.save();x.translate(300,275);x.rotate(i*.51);if(i%3===0){for(let k=28;k>0;k--){x.beginPath();x.ellipse(Math.sin(k*.17)*50,0,15+k*7,15+k*6,.4,0,Math.PI*2);x.strokeStyle=a.colors[2]+(k%3?'59':'bd');x.lineWidth=k%3?1:3;x.stroke()}g=x.createRadialGradient(-30,-40,1,0,0,110);g.addColorStop(0,a.colors[2]);g.addColorStop(.7,a.colors[1]);g.addColorStop(1,a.colors[0]);x.fillStyle=g;x.beginPath();x.arc(0,0,105,0,7);x.fill()}else if(i%3===1){for(let k=0;k<18;k++){x.rotate(.14);x.strokeStyle=a.colors[2]+'70';x.lineWidth=3;x.strokeRect(-165+k*4,-165+k*4,330-k*8,330-k*8)}}else{for(let k=0;k<22;k++){x.beginPath();x.moveTo(-430,k*15-150);x.bezierCurveTo(-80,-250+k*10,40,300-k*3,420,k*18-160);x.strokeStyle=a.colors[2]+(k%4?'80':'ee');x.lineWidth=k%4?2:6;x.stroke()}}x.restore();let seed=i+7;for(let k=0;k<8500;k++){seed=(seed*1664525+1013904223)>>>0;let px=seed%600;seed=(seed*1664525+1013904223)>>>0;x.fillStyle=k%2?'#ffffff0a':'#00000015';x.fillRect(px,seed%600,1,1)}x.fillStyle=a.colors[2];x.font='14px Arial';x.fillText('O R B I T    R E C O R D S',38,48);x.fillText(String(i+1).padStart(2,'0')+' / '+a.year,452,48);x.font='36px Arial';x.fillText(a.title,36,516);x.font='15px Arial';x.fillText(a.artist,38,551);return c.toDataURL('image/jpeg',.92)}
+
+/* ===== js/library/cd-library.js ===== */
+/*
+ * Seek 前端 · 唱片收藏（CD 集）
+ * ---------------------------------------------------------------------------
+ * 负责用户自己的唱片集：演示唱片 + 收藏的真实专辑 + 手动新建的唱片。
+ *   · localStorage 持久化（key: seek-collection-v1）
+ *   · 编辑 CD 集页面：点击 / 拖动排序、新建、删除、改封面与信息
+ *   · 搜索候选「★ 收藏到唱片机」也走这里
+ *
+ * 对外接口（main.js 注入给搜索模块使用）：
+ *   library.getAlbums() / addAlbum() / removeAlbum() / updateAlbum()
+ *   library.reorder(ids) / has(id) / get(id) / list()
+ *   library.openEditor() / closeEditor()
+ *
+ * 注意：候选不会自动进入唱片集，必须用户显式收藏。
+ * 数据来源区分：source === 'demo' | 'favorite' | 'custom'。
+ */
+
+function createCdLibrary({
+  initialAlbums = [],
+  storageKey = 'seek-collection-v1',
+  onLibraryChange = () => {}
+}) {
+  const COLL_KEY = storageKey;
+
+  /* ------------------------------------------------------------------
+   * 编辑 CD 集：页面渲染、指针拖拽排序、单张唱片编辑弹窗
+   * ------------------------------------------------------------------ */
+  let cdEditingId=null,editDragId=null,editMoved=false,editStartX=0,editStartY=0;
+
+  function cdPreview(a,idx){if(a.cover)return a.cover;try{return generateArtwork(a, idx)||''}catch{return ''}}
+
+  function cdRender(){const grid=el('cd-grid');grid.replaceChildren();libraryApi.list().forEach((a,idx)=>{const it=document.createElement('div');it.className='cd-item';it.dataset.id=a.id;const img=document.createElement('img');img.alt=a.title;img.draggable=false;img.src=cdPreview(a,idx);const t=document.createElement('div');t.className='cd-item-title';t.textContent=a.title;const ar=document.createElement('div');ar.className='cd-item-artist';ar.textContent=a.artist;it.append(img,t,ar);grid.append(it)})}
+
+  function cdItemAt(x,y){const el=document.elementFromPoint(x,y);return el&&el.closest('.cd-item')}
+
+  function cdInsertIndex(x,y){const items=[...el('cd-grid').querySelectorAll('.cd-item')];if(!items.length)return 0;for(let i=0;i<items.length;i++){const r=items[i].getBoundingClientRect();if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom)return x<r.left+r.width/2?i:i+1}let bi=0,bd=1e9;items.forEach((it,i)=>{const r=it.getBoundingClientRect();const d=(x-(r.left+r.width/2))**2+(y-(r.top+r.height/2))**2;if(d<bd){bd=d;bi=i}});const r=items[bi].getBoundingClientRect();return x<r.left+r.width/2?bi:bi+1}
+
+  function cdWireGrid(){const grid=el('cd-grid');
+   grid.addEventListener('pointerdown',e=>{const it=cdItemAt(e.clientX,e.clientY);if(!it||e.button!==0)return;editDragId=it.dataset.id;editMoved=false;editStartX=e.clientX;editStartY=e.clientY;it.classList.add('dragging');try{grid.setPointerCapture(e.pointerId)}catch{}});
+   grid.addEventListener('pointermove',e=>{if(!editDragId)return;if(!editMoved&&Math.hypot(e.clientX-editStartX,e.clientY-editStartY)>7)editMoved=true;if(!editMoved)return;const ids=libraryApi.list().map(x=>x.id);const from=ids.indexOf(editDragId);if(from<0)return;const insert=cdInsertIndex(e.clientX,e.clientY);ids.splice(from,1);const to=Math.max(0,Math.min(ids.length,insert>from?insert-1:insert));ids.splice(to,0,editDragId);const cur=libraryApi.list().map(x=>x.id);if(ids.join('\u0000')!==cur.join('\u0000')){libraryApi.reorder(ids);cdRender();const nn=el('cd-grid').querySelector('.cd-item[data-id="'+editDragId+'"]');if(nn)nn.classList.add('dragging')}});
+   grid.addEventListener('pointerup',e=>{if(editDragId){const prev=el('cd-grid').querySelector('.cd-item.dragging');if(prev)prev.classList.remove('dragging');editDragId=null;try{grid.releasePointerCapture(e.pointerId)}catch{}}});
+   grid.addEventListener('click',e=>{const it=e.target.closest('.cd-item');if(it&&it.dataset.id)cdEdit(it.dataset.id)});
+  }
+
+  function cdEdit(id){const a=libraryApi.get(id);if(!a)return;cdEditingId=id;el('cd-modal-title').textContent='编辑 · '+a.title;el('cd-f-title').value=a.title;el('cd-f-artist').value=a.artist;el('cd-f-cover').value=a.cover||'';el('cd-f-year').value=a.year;el('cd-f-genre').value=a.genre;el('cd-modal-notice').textContent='';el('cd-modal').hidden=false;setTimeout(()=>el('cd-f-title').focus(),50)}
+
+  function cdSave(){if(!cdEditingId)return;const patch={title:el('cd-f-title').value.trim(),artist:el('cd-f-artist').value.trim(),cover:el('cd-f-cover').value.trim(),year:el('cd-f-year').value.trim(),genre:el('cd-f-genre').value.trim()};if(!patch.title){el('cd-modal-notice').textContent='专辑名不能为空。';return}libraryApi.update(cdEditingId,patch);el('cd-modal').hidden=true;cdRender()}
+
+  function cdNew(){const id=libraryApi.add({title:'新唱片',artist:'未知艺人',cover:'',year:'',genre:'',source:'custom'});cdRender();cdEdit(id)}
+
+  function cdDelete(){if(!cdEditingId)return;libraryApi.remove(cdEditingId);el('cd-modal').hidden=true;cdRender()}
+
+  function cdOpen(){el('cd-editor').hidden=false;cdRender()}
+
+  function cdClose(){el('cd-editor').hidden=true;el('cd-modal').hidden=true}
+
+  el('cd-done').onclick=cdClose;
+
+  el('cd-add').onclick=cdNew;
+
+  el('cd-modal-close').onclick=()=>{el('cd-modal').hidden=true};
+
+  el('cd-save').onclick=cdSave;
+
+  el('cd-delete').onclick=cdDelete;
+  /* 场景与搜索模块都不直接读 collection，统一通过 getAlbums() / list() */
+  let libraryApi = null;
+
+let collection=[];
+try{const v=JSON.parse(localStorage.getItem(COLL_KEY)||'null');if(Array.isArray(v)&&v.length)collection=v}catch{}
+if(!collection.length){collection=initialAlbums.map((a,i)=>({id:'demo-'+i,title:a.title,artist:a.artist,year:a.year,genre:a.genre,cover:a.cover,colors:a.colors,source:'demo'}));persistCollection()}
+function persistCollection(){try{localStorage.setItem(COLL_KEY,JSON.stringify(collection))}catch{}}
+function normalizeAlbum(e){const a={id:String(e.id||''),title:String(e.title||'未命名唱片'),artist:String(e.artist||'未知艺人'),year:String(e.year||''),genre:String(e.genre||''),language:String(e.language||''),cover:String(e.cover||''),tracks:Array.isArray(e.tracks)?e.tracks:[],source:String(e.source||'custom')};if(e.colors&&Array.isArray(e.colors))a.colors=e.colors;return a}
+function applyLibrary(){onLibraryChange(collection.slice())}
+function libAdd(e){const a=normalizeAlbum(e);if(!a.id)a.id='c-'+Date.now().toString(36);collection=collection.filter(x=>x.id!==a.id);collection.unshift(a);persistCollection();applyLibrary();return a.id}
+applyLibrary();
+
+  /* 对外只暴露行为，不暴露内部数组 */
+  /* 接线：拖拽排序的指针事件只绑一次；首页「编辑CD集」入口也在这里 */
+  cdWireGrid();
+  el('custom-entry').onclick = cdOpen;
+
+  libraryApi = Object.assign({
+ add:libAdd,
+ addFavorite(e){return libAdd(Object.assign({},e,{source:'favorite'}))},
+ addCustom(e){return libAdd(Object.assign({},e,{source:'custom'}))},
+ remove(id){collection=collection.filter(x=>x.id!==id);persistCollection();applyLibrary()},
+ update(id,patch){const a=collection.find(x=>x.id===id);if(!a)return false;if(patch.title!=null)a.title=String(patch.title);if(patch.artist!=null)a.artist=String(patch.artist);if(patch.year!=null)a.year=String(patch.year);if(patch.genre!=null)a.genre=String(patch.genre);if(patch.cover!=null)a.cover=String(patch.cover);persistCollection();applyLibrary();return true},
+ reorder(orderedIds){const m=new Map(collection.map(x=>[x.id,x]));const next=orderedIds.map(id=>m.get(id)).filter(Boolean);const seen=new Set(orderedIds);collection=next.concat(collection.filter(x=>!seen.has(x.id)));persistCollection();applyLibrary()},
+ has(id){return collection.some(x=>x.id===id)},
+ get(id){return collection.find(x=>x.id===id)||null},
+ list(){return collection.slice()}
+}, {
+    getAlbums: () => collection.slice(),
+    openRecordEditor: (id) => cdEdit(String(id)),
+    openEditor: () => { document.getElementById('cd-editor').hidden = false; cdRender(); },
+    closeEditor: () => { document.getElementById('cd-editor').hidden = true; document.getElementById('cd-modal').hidden = true; }
+  });
+  onLibraryChange(collection.slice());
+  return libraryApi;
+}
+
+/* ===== js/demo/demo-data.js ===== */
+/*
+ * Seek 前端 · 演示数据
+ * ---------------------------------------------------------------------------
+ * 这里的唱片只用于「示例演示」模式：程序化生成的封面 + 虚构的专辑信息。
+ * Live Search 绝不使用它们；用户收藏的真实专辑也不会写回这个数组。
+ * 想加示例唱片：直接往数组里加一项即可（colors 用于生成封面渐变）。
+ */
+const demoAlbums = [
+{title:'夜航',artist:'LUNA / 月相计划',year:'2024',genre:'AMBIENT',colors:['#091a24','#479899','#d9c5a0'],cover:''},
+{title:'Solar Studies',artist:'Aster Fields',year:'2023',genre:'ELECTRONIC',colors:['#351613','#d76735','#f6cc75'],cover:''},
+{title:'潮汐之间',artist:'低频海岸',year:'2025',genre:'DREAM POP',colors:['#082b30','#478c85','#bcdfcf'],cover:''},
+{title:'Velvet Hours',artist:'The Quiet Assembly',year:'2022',genre:'JAZZ',colors:['#281629','#8b5368','#dfb6a1'],cover:''},
+{title:'蓝色星期日',artist:'Blue Passenger',year:'2024',genre:'INDIE',colors:['#121a3d','#5c75c6','#c7d1e8'],cover:''},
+{title:'Afterglow',artist:'Mira Sol',year:'2025',genre:'SOUL',colors:['#392015','#c99747','#ead8a8'],cover:''},
+{title:'失重花园',artist:'空想电台',year:'2023',genre:'ALTERNATIVE',colors:['#1e2816','#8c9c5d','#d6d0ad'],cover:''},
+{title:'Glass Memory',artist:'NØR',year:'2024',genre:'DOWNTEMPO',colors:['#182629','#748c9a','#dde1cf'],cover:''},
+{title:'赤道来信',artist:'南方来客',year:'2025',genre:'CITY POP',colors:['#381b26','#c85a71','#edbea4'],cover:''},
+{title:'Soft Machines',artist:'Parallel Lines',year:'2022',genre:'EXPERIMENTAL',colors:['#172629','#3d8176','#a8c6b3'],cover:''},
+{title:'微光尽头',artist:'凌晨四点',year:'2024',genre:'POST ROCK',colors:['#1b152c','#6a6194','#d7bdd3'],cover:''},
+{title:'Still / Moving',artist:'Oren Atlas',year:'2025',genre:'MODERN CLASSICAL',colors:['#252420','#868178','#e1d9c5'],cover:''}
+];;
+
+/* ===== js/demo/demo-provider.js ===== */
+/*
+ * Seek 前端 · 示例演示数据源
+ * ---------------------------------------------------------------------------
+ * 只有在用户【主动】选择「示例演示」时才会被装上（SeekSearch.useDemo）。
+ * 生产环境绝不允许在真实 API 失败后偷偷切到这里 —— 那属于严重误导。
+ *
+ * 演示候选一律标记 source='demo'，界面必须显示 DEMO DATA 标识。
+ */
+
+async function demoProvider(payload,{signal}){await sleep(650);if(signal.aborted)throw new DOMException('Aborted','AbortError');let indices=[0,2,4,7,9,11,1,3];if(payload.operation==='answer'&&payload.answers.at(-1)?.value==='no')indices=[1,3,5,8,0,2,4,7];if(payload.operation==='rerank'&&/红|暖|橙/.test(payload.memories.join(' ')))indices=[1,8,5,3,0,2,4,7];const candidate=i=>({id:'demo-'+i,title:demoAlbums[i].title,artist:demoAlbums[i].artist,year:demoAlbums[i].year,genre:demoAlbums[i].genre,language:'示例资料',cover:demoAlbums[i].cover||generateArtwork(demoAlbums[i],i),matches:['交互演示用专辑，不是实际搜索结果。'],conflicts:[],tracks:[{id:'a',title:'序曲 · 示例曲目',duration:'3:42'},{id:'b',title:'回声 · 示例曲目',duration:'4:06'},{id:'c',title:'归途 · 示例曲目',duration:'3:18'}]});if(payload.operation==='details')return {candidate:candidate(Number(payload.albumId.replace('demo-',''))||0)};return {sessionId:'demo-session',candidates:indices.filter(i=>!payload.excludedIds.includes('demo-'+i)).map(candidate),question:{id:'demo-color',text:'你记得封面里有没有大面积的蓝绿色？'}}}
+{ demoProvider };
+
+/* ===== js/search/search-store.js ===== */
+/*
+ * Seek 前端 · 搜索会话状态
+ * ---------------------------------------------------------------------------
+ * 只保存「数据状态」，绝不保存动画状态（动画由 particle-morph-engine 自己管）。
+ * 一次搜索会话拥有自己的记忆：关闭搜索时 forgetMemory() 会清空。
+ *
+ * 关键字段：
+ *   query        最初提交的记忆
+ *   memories     后来补充的记忆（与 query 分开保存，便于后端结构化）
+ *   answers      追问答案 [{ questionId, value }]，value ∈ yes|no|uncertain
+ *   excluded     本轮前端排除的候选 id（后端不支持 rejection 时仅本地生效）
+ *   candidates   后端返回并映射后的候选数组
+ *   index        当前正在看的候选下标
+ *   question     后端返回的追问（后端没有就是 null，前端不得伪造）
+ *   sessionId    后端会话 id（后端未启用 session 时为 null）
+ *   state        业务状态机（见 search-state.js）
+ *   demo         是否处于「示例演示」模式（true 时严禁当作真实结果）
+ */
+class SearchSessionStore{
+ constructor(){this.query='';this.memories=[];this.answers=[];this.excluded=new Set();this.candidates=[];this.index=0;this.question=null;this.sessionId=null;this.state='ORBIT';this.demo=false;this.albumId=null;try{const v=JSON.parse(sessionStorage.getItem('seek-memory')||'null');if(v){this.query=String(v.query||'');this.memories=Array.isArray(v.memories)?v.memories:[]}}catch{}}
+ save(){try{sessionStorage.setItem('seek-memory',JSON.stringify({query:this.query,memories:this.memories}))}catch{}}
+ payload(operation){return {operation,query:this.query,memories:this.memories.slice(),answers:this.answers.slice(),excludedIds:[...this.excluded],sessionId:this.sessionId,albumId:this.albumId}}
+ current(){return this.candidates[this.index]||null}
+}
+{ SearchSessionStore };
+
+/* ===== js/search/particle-morph-engine.js ===== */
+/*
+ * Seek 前端 · 粒子形变引擎
+ * ---------------------------------------------------------------------------
+ * 纯粹的可视化模块。它只做：文字采样、图片采样、seed、dissolve、float、
+ * attract、capture、morph、fade、stop、draw、resize。
+ *
+ * 严格禁止（保持单向依赖）：
+ *   ✗ 发 API 请求      ✗ 读写 Search Store     ✗ 决定候选或结果状态
+ *   ✗ 访问后端          ✗ 决定搜索成功还是失败
+ *
+ * 输出只有 Promise（动画是否走完）。动画失败由调用方降级成 crossfade，
+ * 绝不允许因为动画失败而让搜索结果失败。
+ */
+
+class ParticleMorphEngine{
+ constructor(canvas,{onResize=()=>{},limits={}}={}){this.onResize=onResize;this.limits=limits;this.canvas=canvas;this.ctx=canvas.getContext('2d');this.mode='idle';this.points=[];this.resolve=null;this.last=performance.now();this.resize();addEventListener('resize',()=>{this.resize();clearTimeout(this.lt);this.lt=setTimeout(()=>{try{this.onResize()}catch{}},150)});requestAnimationFrame(t=>this.draw(t))}
+ // Particles are composited into an ImageData buffer (additive), then blitted once per frame.
+ // That keeps ~50k live particles affordable, where per-particle fillRect could not.
+ resize(){this.width=innerWidth;this.height=innerHeight;this.canvas.width=this.width;this.canvas.height=this.height;this.img=this.ctx.createImageData(this.width,this.height);this.buf=new Uint32Array(this.img.data.buffer);this.limit=this.width<650?((this.limits&&this.limits.mobileLimit)||22000):((this.limits&&this.limits.desktopLimit)||52000)}
+ cancel(){if(this.resolve){this.resolve(false);this.resolve=null}if(this.mode==='morph')this.mode='hold'}
+ seed(n){while(this.points.length<n){const i=this.points.length;this.points.push({x:Math.random()*this.width,y:Math.random()*this.height,rgb:[237,196,139],size:1.3,alpha:.55,bright:1,seed:i*1.618})}this.points.length=n}
+ one(c){if(Array.isArray(c))return c;if(typeof c==='string'&&c[0]==='#'){const v=parseInt(c.slice(1),16);return[(v>>16)&255,(v>>8)&255,v&255]}const m=String(c).match(/\d+/g)||[237,196,139];return[+m[0],+m[1],+m[2]]}
+ sample(image,rect){const side=Math.max(24,Math.ceil(Math.sqrt(this.limit))),c=document.createElement('canvas');c.width=c.height=side;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(image,0,0,side,side);const data=x.getImageData(0,0,side,side).data,out=[],step=rect.width/side;for(let y=0;y<side;y++)for(let col=0;col<side;col++){const i=(y*side+col)*4;if(data[i+3]<28)continue;out.push({x:rect.left+(col+.5)*step,y:rect.top+(y+.5)*step,rgb:[data[i],data[i+1],data[i+2]],size:Math.max(1,step+.6),alpha:data[i+3]/255})}return out}
+ text(text,rect,style){const st=style||{},fs=st.size||22,lh=st.line||Math.round(fs*1.5),pad=st.pad||0,ink=this.one(st.color||'#f6d3a0'),fam=st.family||'Arial';const c=document.createElement('canvas');c.width=Math.max(250,Math.floor(rect.width));c.height=Math.max(150,Math.ceil((Math.ceil(text.length/8)+2)*lh));const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle=st.color||'#f6d3a0';x.font=fs+'px '+fam;let row=lh,line='';for(const ch of text.slice(0,200)){if(x.measureText(line+ch).width>c.width-pad*2-6){x.fillText(line,pad,row);row+=lh;line=''}line+=ch;if(row>c.height-lh)break}x.fillText(line,pad,row);const d=x.getImageData(0,0,c.width,c.height).data,out=[];for(let y=0;y<c.height;y+=2)for(let cx=0;cx<c.width;cx+=2){const i=(y*c.width+cx)*4;if(d[i+3]>70)out.push({x:rect.left+cx,y:rect.top+y,rgb:ink,size:1.4,alpha:.92})}return out}
+ dissolve(text,rect,style){this.cancel();if(motion.matches){this.stop();return sleep(160)}const target=this.text(text,rect,style);this.seed(Math.min(this.limit,target.length||3200));this.points.forEach((p,i)=>{const t=target[i%target.length];if(t){p.x=t.x;p.y=t.y;p.rgb=t.rgb.slice();p.size=t.size;p.alpha=t.alpha}});this.float();return sleep(680)}
+ float(){this.cancel();if(motion.matches){this.mode='idle';return}if(!this.points.length)this.seed(4200);this.mode='float';this.points.forEach(p=>{p.vx=Math.cos(p.seed)*(.6+Math.random());p.vy=Math.sin(p.seed)*(.6+Math.random());p.size=Math.min(p.size,2);p.bright=1})}
+ attract(ms=540){this.cancel();if(motion.matches)return;if(!this.points.length)this.seed(4200);this.mode='attract';this.attractUntil=(this.now||performance.now())+ms;for(const p of this.points){const dx=this.width/2-p.x,dy=this.height*.44-p.y,d=Math.hypot(dx,dy)||1;p.vx=dx/d;p.vy=dy/d;p.alpha=.26;p.size=Math.min(p.size,1.8);p.bright=1}}
+ fade(ms=560){this.cancel();if(this.mode==='idle')return;this.mode='fade';this.fadeStart=this.now||performance.now();this.fadeMs=ms}
+ stop(){this.cancel();this.mode='idle';this.ctx.clearRect(0,0,this.width,this.height)}
+ // Capture the visible source, not the old floating/search particles.
+ capture(image,rect){const targets=this.sample(image,rect);this.seed(Math.min(this.limit,targets.length));this.points.forEach((p,i)=>{const t=targets[i];p.x=t.x;p.y=t.y;p.rgb=t.rgb.slice();p.size=t.size;p.alpha=t.alpha;p.bright=1});this.mode='hold'}
+ morph(targets,duration=1150,burst=110,inward=false){
+  this.cancel();if(motion.matches){this.stop();return sleep(180).then(()=>true)}
+  if(!targets.length)return Promise.resolve(false);
+  this.seed(Math.min(this.limit,targets.length));this.turn=(this.turn||0)+1;
+  const hash=n=>{const v=Math.sin(n*127.1+this.turn*31.7)*43758.5453;return v-Math.floor(v)};
+  const bounds=targets.reduce((b,p)=>[Math.min(b[0],p.x),Math.min(b[1],p.y),Math.max(b[2],p.x),Math.max(b[3],p.y)],[Infinity,Infinity,-Infinity,-Infinity]);
+  const ccx=(bounds[0]+bounds[2])/2,ccy=(bounds[1]+bounds[3])/2;this.gcx=ccx;this.gcy=ccy;
+  const count=this.points.length;let ox=0,oy=0;for(const p of this.points){ox+=p.x;oy+=p.y}ox/=count;oy/=count;
+  this.phases=inward?{shatter:0,drift:0,gather:720,square:140,refine:290}:{shatter:265,drift:380,gather:560,square:90,refine:330};
+  this.duration=Object.values(this.phases).reduce((a,b)=>a+b,0);this.inward=inward;
+  this.points.forEach((p,i)=>{
+   const t=targets[i%targets.length],h=hash(i+.1),h2=hash(i+920.4),h3=hash(i+1801.5);
+   p.sx=p.x;p.sy=p.y;p.startSize=p.size;p.startAlpha=p.alpha;p.startBright=p.bright||1;
+   p.tx=t.x;p.ty=t.y;p.targetSize=t.size;p.targetAlpha=t.alpha??1;
+   p.frgb=(p.rgb||[237,196,139]).slice();p.trgb=this.one(t.rgb||t.color).slice();p.rgb=p.frgb.slice();
+   p.dep=.35+h3*1.65;p.starSize=.7+Math.pow(h3,2)*1.65;p.starAlpha=.28+.38*h3;
+   const angle=Math.atan2(p.y-oy,p.x-ox)+(h-.5)*1.6,ux=Math.cos(angle),uy=Math.sin(angle);
+   const edgeX=(ux>0?this.width-ox:-ox)/(Math.abs(ux)<.0001?.0001:ux),edgeY=(uy>0?this.height-oy:-oy)/(Math.abs(uy)<.0001?.0001:uy);
+   const reach=Math.min(Math.abs(edgeX),Math.abs(edgeY))*Math.sqrt(.025+.94*h2);
+   p.ex=inward?p.x:ox+ux*reach;p.ey=inward?p.y:oy+uy*reach;
+   p.driftX=(h-.5)*24*p.dep;p.driftY=(h2-.5)*18*p.dep;p.wave=(h3-.5)*8;
+   // Exact end of suspension is the start of the gravity curve: no reset.
+   p.ax=p.ex+p.driftX;p.ay=p.ey+p.driftY;
+   if(inward){p.ax=p.x;p.ay=p.y}
+   p.qx=ccx+(t.x-ccx)*.98;p.qy=ccy+(t.y-ccy)*.98;
+   const dx=p.ax-ccx,dy=p.ay-ccy,L=Math.hypot(dx,dy)||1,bend=(h-.5)*Math.min(110,L*.15);
+   p.c1x=p.ax-dx*.3-dy/L*bend;p.c1y=p.ay-dy*.3+dx/L*bend;
+   p.c2x=ccx+(p.qx-ccx)*.45;p.c2y=ccy+(p.qy-ccy)*.45;
+  });
+  this.mode='morph';this.started=this.now||performance.now();return new Promise(r=>this.resolve=r)
+ }
+ updateBreath(age){
+  const P=this.phases,a=P.shatter,b=a+P.drift,c=b+P.gather,d=c+P.square,end=d+P.refine;
+  const sat=x=>Math.max(0,Math.min(1,x)),ease=x=>x*x*x*(x*(x*6-15)+10),lerp=(x,y,q)=>x+(y-x)*q;
+  for(const p of this.points){let color=0;
+   if(age<a){
+    const u=sat(age/a),q=10*u*u-20*u*u*u+15*u**4-4*u**5;
+    p.x=lerp(p.sx,p.ex,q);p.y=lerp(p.sy,p.ey,q);
+    p.size=lerp(p.startSize,p.starSize,q);p.alpha=lerp(p.startAlpha,p.starAlpha,q);
+    p.bright=lerp(p.startBright,1,q)+Math.sin(Math.PI*u)*.65;
+   }else if(age<b){
+    const u=sat((age-a)/P.drift),q=ease(u),breath=Math.sin(Math.PI*u)**2;
+    p.x=p.ex+p.driftX*q+Math.sin(u*Math.PI*2+p.seed)*p.wave*breath;
+    p.y=p.ey+p.driftY*q+Math.cos(u*Math.PI*2+p.seed)*p.wave*breath;
+    p.size=p.starSize*(1+.13*breath*Math.sin(p.seed+u*3));
+    p.alpha=p.starAlpha;p.bright=1+breath*(.28*Math.sin(p.seed+u*5)-.18);
+   }else if(age<c){
+    const u=sat((age-b)/P.gather),q=ease(u),v=1-q;
+    p.x=v*v*v*p.ax+3*v*v*q*p.c1x+3*v*q*q*p.c2x+q*q*q*p.qx;
+    p.y=v*v*v*p.ay+3*v*v*q*p.c1y+3*v*q*q*p.c2y+q*q*q*p.qy;
+    p.size=lerp(p.starSize,p.targetSize*.9,q);p.alpha=lerp(p.starAlpha,p.targetAlpha*.74,q);p.bright=1;color=.22*q;
+   }else if(age<d){
+    const u=sat((age-c)/P.square),breath=Math.sin(Math.PI*u)**2*.002;
+    p.x=p.qx+(p.qx-this.gcx)*breath;p.y=p.qy+(p.qy-this.gcy)*breath;
+    p.size=p.targetSize*.9;p.alpha=p.targetAlpha*.74;p.bright=1;color=.22;
+   }else{
+    const q=ease(sat((age-d)/P.refine));p.x=lerp(p.qx,p.tx,q);p.y=lerp(p.qy,p.ty,q);
+    p.size=lerp(p.targetSize*.9,p.targetSize,q);p.alpha=lerp(p.targetAlpha*.74,p.targetAlpha,q);p.bright=1;color=lerp(.22,1,q);
+   }
+   for(let j=0;j<3;j++)p.rgb[j]=lerp(p.frgb[j],p.trgb[j],color);
+  }
+  if(age>=end){this.mode='hold';if(this.resolve){this.resolve(true);this.resolve=null}}
+ }
+
+ draw(t){this.now=t;const dt=Math.max(0,Math.min(32,t-this.last))/16.67;this.last=t;const w=this.width,h=this.height,buf=this.buf;if(!buf){requestAnimationFrame(n=>this.draw(n));return}
+  if(this.mode==='morph')this.updateBreath(Math.max(0,t-this.started));
+  else if(this.mode==='float'){for(const p of this.points){p.x+=(p.vx||0)*dt*.6;p.y+=(p.vy||0)*dt*.6;p.alpha=.22+.18*Math.sin(t/1900+p.seed);if(p.x<0)p.x=w;if(p.x>w)p.x=0;if(p.y<0)p.y=h;if(p.y>h)p.y=0}}
+  else if(this.mode==='attract'){for(const p of this.points){p.x+=(p.vx||0)*dt*1.4;p.y+=(p.vy||0)*dt*1.4;p.alpha=.2+.14*Math.sin(t/1700+p.seed)}if(t>=this.attractUntil)this.mode='float'}
+  if(this.mode==='idle'){this.ctx.clearRect(0,0,w,h);requestAnimationFrame(n=>this.draw(n));return}
+  buf.fill(0);
+  const k=this.mode==='fade'?Math.max(0,1-(t-this.fadeStart)/this.fadeMs):1;
+  for(let n=0;n<this.points.length;n++){const p=this.points[n],a=p.alpha*(p.bright==null?1:p.bright)*k;if(a<=.015)continue;const c=p.rgb,s=p.size<1?1:(p.size|0),x0=p.x|0,y0=p.y|0;if(x0<-s||y0<-s||x0>=w||y0>=h)continue;const cr=c[0]*a,cg=c[1]*a,cb=c[2]*a,ca=a*255;
+   for(let yy=0;yy<s;yy++){const y1=y0+yy;if(y1>=h)break;if(y1<0)continue;const row=y1*w;
+    for(let xx=0;xx<s;xx++){const x1=x0+xx;if(x1>=w)break;if(x1<0)continue;const i=row+x1,d=buf[i];let nr=(d&255)+cr,ng=((d>>8)&255)+cg,nb=((d>>16)&255)+cb,na=(d>>>24)+ca;buf[i]=(nr>255?255:nr|0)|((ng>255?255:ng|0)<<8)|((nb>255?255:nb|0)<<16)|((na>255?255:na|0)<<24)}}}
+  this.ctx.putImageData(this.img,0,0);
+  if(this.mode==='fade'&&t>=this.fadeStart+this.fadeMs)this.stop();
+  requestAnimationFrame(n=>this.draw(n))}
+}
+{ ParticleMorphEngine };
+
+/* ===== js/shared/errors.js ===== */
+/*
+ * Seek 前端 · 错误类型
+ * ---------------------------------------------------------------------------
+ * 统一用「错误类别 kind」判断处理方式，不要靠解析后端返回的中文/英文文案。
+ *
+ * 后端未来建议返回稳定的机器码，前端按码映射：
+ *   INVALID_QUERY / MODEL_UNAVAILABLE / INDEX_NOT_READY / SERVICE_BUSY /
+ *   NO_DATA / INTERNAL_ERROR
+ *
+ * 兼容说明：页面历史上一直用 SearchFailure(kind, message)，
+ * 这里保留它作为基类行为，同时提供语义化的子类，
+ * 这样旧 throw 不用改，新代码可以直接用具体类型。
+ */
+
+/* 错误类别 → UI 文案标题（search-view 使用） */
+const ERROR_TITLES = {
+  unconnected: '搜索服务尚未连接',
+  network: '连接暂时中断',
+  timeout: '搜索等待超时',
+  model: '模型暂时无法完成搜索',
+  request: '搜索请求未被接受',
+  service: '搜索服务暂时不可用',
+  invalid_response: '搜索服务返回的数据无法识别',
+  busy: '搜索服务正在忙',
+  index_not_ready: '索引还没准备好'
+};
+
+class SearchError extends Error {
+  constructor(kind, message) {
+    super(message);
+    this.name = 'SearchError';
+    this.kind = kind;
+  }
+}
+
+/* 兼容旧名字：整个页面历史代码都 throw new SearchFailure(kind, message) */
+class SearchFailure extends SearchError {
+  constructor(kind, message) {
+    super(kind, message);
+    this.name = 'SearchFailure';
+  }
+}
+
+class NetworkError extends SearchFailure {
+  constructor(message = '无法连接搜索服务，请检查网络、接口地址与跨域设置。') { super('network', message); }
+}
+
+class TimeoutError extends SearchFailure {
+  constructor(message = '搜索等待超时。记忆已保留，可以重试。') { super('timeout', message); }
+}
+
+class ApiError extends SearchFailure {
+  constructor(message = '搜索请求未被接受。') { super('request', message); }
+}
+
+class ModelUnavailableError extends SearchFailure {
+  constructor(message = '搜索模型暂时无法完成检索，请稍后重试。') { super('model', message); }
+}
+
+class IndexNotReadyError extends SearchFailure {
+  constructor(message = '搜索索引还没准备好，请稍后再试。') { super('index_not_ready', message); }
+}
+
+class ServiceBusyError extends SearchFailure {
+  constructor(message = '搜索服务正在忙，请稍后再试。') { super('busy', message); }
+}
+
+class InvalidResponseError extends SearchFailure {
+  constructor(message = '搜索服务返回的数据无法识别。') { super('invalid_response', message); }
+}
+
+class CoverLoadError extends SearchFailure {
+  constructor(message = '封面无法加载。') { super('service', message); }
+}
+
+/* 未连接服务（用户还没配置任何后端，也没有开启 Demo） */
+class UnconnectedError extends SearchFailure {
+  constructor(message = '尚未连接搜索服务。你的记忆已保留，可以连接接口，或使用明确标注的示例演示。') {
+    super('unconnected', message);
+  }
+}
+
+/* ===== js/search/candidate-mapper.js ===== */
+/*
+ * Seek 前端 · 候选数据规范化
+ * ---------------------------------------------------------------------------
+ * 所有后端字段变化都必须经过这里，UI 不得直接依赖后端原始结构。
+ *
+ * 内部统一 DTO（见 README「Candidate DTO」一节）：
+ *   { id, title, artist, year, genre, language, cover, matches, conflicts, tracks }
+ * 其中 tracks === null 表示「尚未请求详情」，[] 表示「请求过但没有曲目」。
+ *
+ * TODO(第二阶段)：genre → genres[]、language → languages[]、
+ *                  cover → { small, medium, original }。
+ */
+
+function normalizeCandidate(v){if(!v||typeof v.id!=='string'||typeof v.title!=='string'||typeof v.cover!=='string')throw new SearchFailure('service','候选数据缺少 id、title 或 cover。');let url;try{url=new URL(v.cover,location.href);if(!['http:','https:','file:','data:','blob:'].includes(url.protocol)||url.protocol==='data:'&&!url.href.startsWith('data:image/'))throw 0}catch{throw new SearchFailure('service','封面地址格式不受支持。')}
+ const list=a=>Array.isArray(a)?a.filter(x=>typeof x==='string').slice(0,2):[];
+ return {id:v.id,title:v.title,artist:typeof v.artist==='string'?v.artist:'艺人信息未提供',cover:url.href,year:v.year==null?'':String(v.year),genre:Array.isArray(v.genre)?v.genre.join(' / '):String(v.genre||''),language:String(v.language||''),matches:list(v.matches),conflicts:list(v.conflicts),tracks:Array.isArray(v.tracks)?v.tracks.filter(t=>t&&typeof t.title==='string').map(t=>({id:String(t.id||t.title),title:t.title,duration:String(t.duration||'')})):null};
+}
+{ normalizeCandidate };
+
+/* ===== js/search/seek-api.js ===== */
+/*
+ * Seek 前端 · 后端通信唯一入口
+ * ---------------------------------------------------------------------------
+ * 全站只有这个文件可以出现 fetch()。其它模块一律调用 seekApi.*。
+ *
+ * 适配 github.com/Violet-Galaxy233/seek（app/api.py v0.2.0）
+ *   请求  POST /search
+ *         { description: string(1..1000), answers: [{ question_id, value }] }
+ *         value ∈ "yes" | "no" | "uncertain"
+ *         后端 SearchRequest 是 extra="forbid"，多一个字段就 422，
+ *         所以请求体只允许 description + answers 两个键。
+ *   响应  { raw_query, normalized_query,
+ *           candidates: [{ album:{id,title,artist,language,first_release_year},
+ *                          release:{id,release_date,country},
+ *                          cover:{id,image_uri}, score,
+ *                          matching_clues:[], conflicting_clues:[] }],
+ *           question: { id, text } | null }
+ *   其它  GET /health、GET /covers/<file>
+ *
+ * 后端当前缺口（前端已优雅降级，不算 bug）：
+ *   1. 没有曲目 / 详情接口 → getTracks() 直接返回 unsupported，不发请求
+ *   2. AlbumResponse 没有 genre 字段 → 曲风一栏为空
+ *   3. 真实 IndexedSearchService 尚未实现 answer reranking →
+ *      capabilities.answerRerank=false 时禁止发送非空 answers
+ *   4. 没有 reject / confirm / feedback 接口 → 对应方法按 capability 禁用
+ *
+ * TODO(第三阶段)：apiBase 走 config（默认同源 /api/v1），
+ *                 目前为兼容现有 seek 后端仍调用根路径 /search。
+ */
+
+class SearchAdapter{
+ constructor(){this.endpoint=safeRead('seek-endpoint');this.provider=null;this.base='';this.timeout=60000;if(this.endpoint){try{this.base=new URL(this.endpoint,location.href).origin}catch{this.base=''}}}
+ async request(payload,signal){
+  if(!this.provider&&!this.endpoint)throw new SearchFailure('unconnected','尚未连接搜索服务。你的记忆已保留，可以连接接口，或使用明确标注的示例演示。');
+  let timer;const controller=new AbortController();const cancel=()=>controller.abort();signal.addEventListener('abort',cancel,{once:true});
+  try{
+   return await Promise.race([
+    (async()=>{let data;
+     if(this.provider)data=await this.provider(payload,{signal:controller.signal});
+     else{let response;try{response=await fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal})}catch(e){if(controller.signal.aborted)throw e;throw new SearchFailure('network','无法连接搜索服务，请检查网络、接口地址与跨域设置。')}
+      if(!response.ok)throw new SearchFailure(response.status>=500?'service':'request',`搜索服务返回错误（${response.status}），这不代表没有匹配的音乐。`);
+      try{data=await response.json()}catch{throw new SearchFailure('service','搜索服务返回的数据无法读取，请检查接口响应。')}
+     }
+     if(data?.error)throw new SearchFailure(data.error.type||'model',data.error.message||'搜索模型暂时无法完成检索，请稍后重试。');
+     /* 兼容 seek 的嵌套结构：只要候选里带 album 字段就按 seek 协议解析 */
+     if(Array.isArray(data?.candidates)&&data.candidates.some(c=>c&&c.album)){
+      if(payload.operation==='details')return {candidate:null};
+      return mapSeekResponse(data,this.base||new URL(this.endpoint||location.href,location.href).origin)
+     }
+     if(payload.operation==='details'){if(!data?.candidate)throw new SearchFailure('service','接口未返回专辑详情。');return {...data,candidate:normalizeCandidate(data.candidate)}}
+     if(!data||!Array.isArray(data.candidates))throw new SearchFailure('service','接口未返回有效的候选集合。');
+     /* 单条脏数据不应该让整轮结果失败：逐条容错，全部无效才报错 */
+     const seen=new Set(),clean=[];
+     for(const row of data.candidates){try{const c=normalizeCandidate(row);if(c&&!seen.has(c.id)){seen.add(c.id);clean.push(c)}}catch{}}
+     if(!clean.length)throw new SearchFailure('service','接口返回的候选无法识别（每条都需要 id / title / cover）。');
+     return {...data,candidates:clean};
+    })(),
+    new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new SearchFailure('timeout','搜索等待超时。记忆已保留，可以重试。'))},this.timeout);signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true})})
+   ]);
+  }finally{clearTimeout(timer);signal.removeEventListener('abort',cancel)}
+ }
+}
+
+function mapSeekResponse(data, base) {
+  const rows = Array.isArray(data && data.candidates) ? data.candidates : [];
+  const candidates = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const album = (row && row.album) || {};
+    const cover = (row && row.cover) || {};
+    const raw = typeof cover.image_uri === 'string' ? cover.image_uri.trim() : '';
+    let image = '';
+    if (raw) {
+      try { image = new URL(raw, base + '/').href; } catch { image = ''; }
+    }
+    const id = String(album.id || cover.id || '');
+    const title = String(album.title || '');
+    /* 缺 id / 标题 / 封面的候选直接丢掉，避免一张脏数据拖垮整轮结果 */
+    if (!id || !title || !image) continue;
+    /* 同一张专辑只保留一次，避免封面网格里出现重复条目 */
+    if (seen.has(id)) continue;
+    seen.add(id);
+    candidates.push({
+      id: id,
+      title: title,
+      artist: String(album.artist || ''),
+      cover: image,
+      year: album.first_release_year == null ? '' : String(album.first_release_year),
+      genre: '',                                  /* 见上方「后端当前缺口」第 2 条 */
+      language: String(album.language || ''),
+      matches: Array.isArray(row.matching_clues) ? row.matching_clues : [],
+      conflicts: Array.isArray(row.conflicting_clues) ? row.conflicting_clues : [],
+      tracks: []                                  /* 见上方「后端当前缺口」第 1 条 */
+    });
+  }
+  const question = data && data.question && typeof data.question.text === 'string'
+    ? { id: String(data.question.id || ''), text: data.question.text }
+    : null;
+  return { sessionId: data && data.sessionId ? data.sessionId : null, question: question, candidates: candidates };
+}
+
+async function pingSeekService(base) {
+  const response = await fetch(base + '/health', { method: 'GET' });
+  if (!response.ok) throw new SearchFailure('service', '搜索服务 /health 返回 ' + response.status + '。');
+  return response.json();
+}
+
+function seekProvider(baseUrl) {
+  const base = new URL(baseUrl, location.href).href.replace(/\/+$/, '');
+  return async function (payload, { signal }) {
+    /* 详情接口后端尚未提供：直接返回空，省掉一次白跑的完整检索 */
+    if (payload.operation === 'details') return { candidate: null };
+    const description = [payload.query, ...payload.memories].filter(Boolean).join('\n').slice(0, 1000);
+    if (!description) throw new SearchFailure('request', '请先写一句你记得的描述。');
+    const answers = (payload.answers || []).map(function (answer) {
+      return {
+        question_id: answer.questionId,
+        value: (answer.value === 'yes' || answer.value === 'no') ? answer.value : 'uncertain'
+      };
+    });
+    const response = await fetch(base + '/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: description, answers: answers }),
+      signal: signal
+    });
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).detail || ''; } catch {}
+      throw new SearchFailure(response.status >= 500 ? 'service' : 'request',
+        detail || '搜索服务返回错误（' + response.status + '）。');
+    }
+    const data = await response.json();
+    if (data && data.error) {
+      throw new SearchFailure(data.error.type || 'model',
+        data.error.message || '搜索模型暂时无法完成检索，请稍后重试。');
+    }
+    if (!data || !Array.isArray(data.candidates)) {
+      throw new SearchFailure('service', '接口未返回候选集合。');
+    }
+    return mapSeekResponse(data, base);
+  };
+}
+
+/* 工厂：控制器通过它拿到唯一的后端通信对象 */
+function createSeekApi() {
+  return new SearchAdapter();
+}
+
+{ SearchAdapter, mapSeekResponse, pingSeekService, seekProvider };
+
+/* ===== js/shared/media.js ===== */
+/*
+ * Seek 前端 · 图片加载
+ * ---------------------------------------------------------------------------
+ * 所有封面加载都要走这里，统一处理：
+ *   · 协议白名单（http / https / blob / data:image）
+ *   · crossOrigin='anonymous'（跨域封面要能进 canvas 采样，否则 canvas 会被污染）
+ *   · 超时
+ *   · 加载失败（Live 模式下不允许用假封面顶替）
+ *
+ * 动画模块拿到图片后只负责采样；采样失败由调用方走 crossfade 降级。
+ */
+
+const ALLOWED_PROTOCOLS = ['http:', 'https:', 'blob:', 'data:', 'file:'];
+
+/* 校验封面地址；Live 模式建议 allowData=false，避免后端塞 data URI 顶替真封面 */
+function validateImageUrl(url, { allowData = true } = {}) {
+  if (typeof url !== 'string' || !url.trim()) {
+    throw new SearchFailure('service', '封面地址为空。');
+  }
+  let parsed;
+  try {
+    parsed = new URL(url, location.href);
+  } catch {
+    throw new SearchFailure('service', '封面地址格式不受支持。');
+  }
+  if (!ALLOWED_PROTOCOLS.includes(parsed.protocol)) {
+    throw new SearchFailure('service', '封面地址协议不受支持。');
+  }
+  if (parsed.protocol === 'data:') {
+    if (!allowData) throw new SearchFailure('service', '封面地址不受支持（不允许 data URI）。');
+    if (!parsed.href.startsWith('data:image/')) {
+      throw new SearchFailure('service', '封面地址不是图片。');
+    }
+  }
+  return parsed.href;
+}
+
+/* 加载一张图片。cors=true 时设置 crossOrigin，供 canvas 像素采样使用。 */
+function loadImage(src, cors = true, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    if (cors && !src.startsWith('data:') && !src.startsWith('file:')) {
+      image.crossOrigin = 'anonymous';
+    }
+    const timer = setTimeout(() => reject(new CoverLoadError('封面加载超时。')), timeoutMs);
+    image.onload = () => { clearTimeout(timer); resolve(image); };
+    image.onerror = () => { clearTimeout(timer); reject(new CoverLoadError('封面无法加载。')); };
+    image.src = src;
+  });
+}
+
+/* 尝试加载，永远不抛错：动画路径用它，失败就走降级 */
+async function tryLoadImage(src, cors = true) {
+  try { return await loadImage(src, cors); } catch { return null; }
+}
+
+/* 预加载但不需要 Image 对象，用于「当前候选前后各一张」 */
+function preloadImage(src) {
+  if (!src) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(true);
+    image.onerror = () => resolve(false);
+    image.src = src;
+  });
+}
+
+/* ===== js/search/search-view.js ===== */
+/*
+ * Seek 前端 · 搜索界面渲染
+ * ---------------------------------------------------------------------------
+ * 只负责把 Store 里的数据画到 DOM 上：
+ *   ✗ 不发 API  ✗ 不计算候选  ✗ 不维护会话  ✗ 不碰粒子动画业务
+ * 收藏状态、选曲目等业务动作通过 deps 回调交回 controller。
+ */
+
+function createSearchView({ store, onPickTrack = () => {} }) {
+  const panelIds=['query-composer','search-status','candidate-viewer','question-card','empty-card','error-card','candidate-overview'];
+
+  function announce(s){el('search-announcement').textContent=s}
+
+  function showPanels(...ids){panelIds.forEach(id=>el(id).hidden=!ids.includes(id));document.body.classList.toggle('overview-open',ids.includes('candidate-overview'))}
+
+  function layoutMemory(){
+ const p=el('memory-text'),anchor=el('memory-anchor'),text=memoryDraft();
+ if(!text||anchor.hidden){anchor.style.maxWidth='';return}
+ p.textContent=text;
+ const cs=getComputedStyle(p),padL=parseFloat(cs.paddingLeft)||0,btn=el('previous-candidate'),viewer=el('candidate-viewer');
+ const limit0=(viewer&&!viewer.hidden&&btn)?btn.getBoundingClientRect().left:0;
+ const limit=(limit0&&limit0>innerWidth*.18)?limit0:Math.min(innerWidth*.36,600);
+ const left=p.getBoundingClientRect().left-padL;
+ const maxW=Math.max(200,limit-left-44);
+ anchor.style.maxWidth=(maxW+padL+6)+'px';
+ const cv=layoutMemory.c||(layoutMemory.c=document.createElement('canvas').getContext('2d'));
+ const setFont=s=>{cv.font=`${cs.fontStyle} ${cs.fontWeight} ${s}px ${cs.fontFamily}`};
+ let fs=parseFloat(cs.fontSize)||30;
+ setFont(fs);
+ const parts=text.match(/[^，,、；;]+[，,、；;]?/g)||[text];
+ /* Fit the column so every break can land on a comma: shrink the type rather
+    than cutting a clause in half. */
+ const widest=parts.reduce((m,s)=>Math.max(m,cv.measureText(s).width),0);
+ const fitW=maxW*.93;/* canvas metrics can differ slightly from the rendered face */
+ if(widest>fitW){fs=Math.max(20,Math.floor(fs*fitW/widest));setFont(fs);p.style.fontSize=fs+'px'}else p.style.fontSize='';
+ const esc=s=>s.replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+ const lines=[];let cur='';
+ for(const part of parts){const test=cur+part;if(!cur||cv.measureText(test).width<=fitW)cur=test;else{lines.push(cur.trim());cur=part}}
+ if(cur)lines.push(cur.trim());
+ const out=[];
+ for(const line of lines){if(cv.measureText(line).width<=fitW){out.push(line);continue}let buf='';for(const ch of line){if(buf&&cv.measureText(buf+ch).width>fitW){out.push(buf);buf=ch}else buf+=ch}if(buf)out.push(buf)}
+ p.innerHTML=out.map(esc).join('<br>');
+}
+
+  function renderMemoryNotes(){
+ const list=el('memory-additions'),key=JSON.stringify(store.memories);
+ list.hidden=!store.memories.length;
+ if(list.dataset.content===key)return;
+ const previous=list.childElementCount;list.replaceChildren();
+ store.memories.forEach(text=>{const note=document.createElement('li');note.textContent=String(text);list.append(note)});
+ list.dataset.content=key;
+ if(store.memories.length>previous)requestAnimationFrame(()=>{list.scrollTop=list.scrollHeight});
+}
+
+  function memoryDraft(){const input=el('query-input');return input?input.value.trim():String(store.query||'')}
+
+  function renderMemoryDraft(){const draft=memoryDraft(),empty=!draft;el('memory-text').textContent=empty?'你的记忆将会保留在这里':draft;el('memory-text').classList.toggle('is-empty',empty);el('edit-memory').hidden=empty;layoutMemory()}
+
+  function paintCandidate(c){el('candidate-title').textContent=c.title;el('candidate-artist').textContent=c.artist;el('candidate-meta').textContent=[c.year,c.genre].filter(Boolean).join(' / ');el('candidate-count').textContent=`${String(store.index+1).padStart(2,'0')} / ${String(store.candidates.length).padStart(2,'0')}`;el('candidate-reasons').replaceChildren();for(const [title,rows]of [[store.demo?'演示说明':'像的地方',c.matches],['和你的记忆不一样',c.conflicts]]){if(!rows.length)continue;const box=document.createElement('div'),label=document.createElement('b');label.textContent=title;box.append(label);rows.slice(0,2).forEach(row=>{const p=document.createElement('p');p.textContent=row;box.append(p)});el('candidate-reasons').append(box)}el('candidate-actions').hidden=false;el('candidate-position').hidden=false;el('found-details').hidden=true;el('previous-candidate').hidden=el('next-candidate').hidden=false;el('previous-candidate').disabled=el('next-candidate').disabled=store.candidates.length<2;}
+
+  function renderTracks(c){el('found-meta').textContent=[c.year?c.year+' 年':'',c.language,c.genre].filter(Boolean).join(' · ');el('track-list').replaceChildren();el('track-notice').textContent=c.tracks?.length?'选择你记得的那首歌。':'服务未提供曲目列表。可以继续补充歌曲线索。';c.tracks?.forEach((track,i)=>{const li=document.createElement('li'),n=document.createElement('span'),title=document.createElement('span'),duration=document.createElement('small'),b=document.createElement('button');n.textContent=String(i+1).padStart(2,'0');title.textContent=track.title;duration.textContent=track.duration;b.textContent='是这首';b.onclick=()=>finish(track.title);li.append(n,title,duration,b);el('track-list').append(li)})}
+
+  return {
+    announce,
+    showPanels,
+    layoutMemory,
+    renderMemoryNotes,
+    renderMemory: renderMemoryDraft,
+    memoryDraft,
+    paintCandidate,
+    renderTracks: (candidate) => renderTracks(candidate, onPickTrack)
+  };
+}
+
+/* ===== js/search/search-state.js ===== */
+/*
+ * Seek 前端 · 状态定义（业务状态 / 视觉状态分离）
+ * ---------------------------------------------------------------------------
+ * 为什么分两层：
+ *   业务状态回答「用户在流程的哪一步」，它**不能**依赖动画是否播完；
+ *   视觉状态回答「粒子在做什么」，它可以失败、可以降级，且不影响业务。
+ *
+ * 正确顺序：
+ *   候选已经存在 → 尝试 morph → 成功显示动画 / 失败直接 crossfade
+ * 错误顺序：
+ *   粒子 morph 成功 → 才认为候选存在
+ *
+ * 阶段说明：CSS 目前仍以 data-state="…" 的旧值作为层叠契约
+ * （[data-state="MEMORY_DISSOLVE"] .composer 等），
+ * 因此这里额外提供 LEGACY_* 映射，第二阶段统一次命名后再移除。
+ */
+
+/* 业务状态：用户可见的流程位置 */
+const BUSINESS_STATE = {
+  IDLE: 'idle',                 // 尚未开始
+  COMPOSING: 'composing',       // 正在写记忆
+  SEARCHING: 'searching',       // 已提交，等待后端
+  RESULTS: 'results',           // 有候选，可浏览
+  ASKING: 'asking',             // 后端返回追问，等用户回答
+  FOUND_ALBUM: 'found-album',   // 用户确认专辑
+  FOUND_TRACK: 'found-track',   // 用户确认曲目
+  NO_RESULT: 'no-result',       // 后端认为没有匹配
+  ALL_REJECTED: 'all-rejected', // 本轮候选被用户全部排除（≠ 后端没有答案）
+  ERROR: 'error'                // 失败
+};
+
+/* 视觉状态：粒子引擎在做什么，与业务成败无关 */
+const VISUAL_STATE = {
+  STABLE: 'stable',
+  DISSOLVING: 'dissolving',
+  FLOATING: 'floating',
+  ATTRACTING: 'attracting',
+  MORPHING: 'morphing',
+  CROSSFADING: 'crossfading'
+};
+
+/* CSS 当前使用的 data-state 值（层叠契约，勿轻易改动） */
+const LEGACY_STATE = {
+  ORBIT: 'ORBIT',
+  SEARCH_FOCUS: 'SEARCH_FOCUS',
+  COMPOSING: 'COMPOSING',
+  SEARCH_SUBMITTED: 'SEARCH_SUBMITTED',
+  SEARCHING: 'SEARCHING',
+  RERANKING: 'RERANKING',
+  MEMORY_DISSOLVE: 'MEMORY_DISSOLVE',
+  CANDIDATE_FORMING: 'CANDIDATE_FORMING',
+  CANDIDATE_VIEW: 'CANDIDATE_VIEW',
+  ASKING: 'ASKING',
+  FOUND: 'FOUND',
+  COMPLETED: 'COMPLETED',
+  NO_RESULT: 'NO_RESULT',
+  ERROR: 'ERROR'
+};
+
+/* 业务状态 → 旧 CSS 状态（第二阶段把 CSS 改成新名字后即可删除） */
+const BUSINESS_TO_LEGACY = {
+  [BUSINESS_STATE.IDLE]: LEGACY_STATE.ORBIT,
+  [BUSINESS_STATE.COMPOSING]: LEGACY_STATE.COMPOSING,
+  [BUSINESS_STATE.SEARCHING]: LEGACY_STATE.SEARCHING,
+  [BUSINESS_STATE.RESULTS]: LEGACY_STATE.CANDIDATE_VIEW,
+  [BUSINESS_STATE.ASKING]: LEGACY_STATE.ASKING,
+  [BUSINESS_STATE.FOUND_ALBUM]: LEGACY_STATE.FOUND,
+  [BUSINESS_STATE.FOUND_TRACK]: LEGACY_STATE.COMPLETED,
+  [BUSINESS_STATE.NO_RESULT]: LEGACY_STATE.NO_RESULT,
+  [BUSINESS_STATE.ALL_REJECTED]: LEGACY_STATE.NO_RESULT,
+  [BUSINESS_STATE.ERROR]: LEGACY_STATE.ERROR
+};
+
+/* 业务状态 → 应该显示哪个面板（搜索界面是单面板互斥结构） */
+const PANEL_FOR_STATE = {
+  [BUSINESS_STATE.IDLE]: 'query-composer',
+  [BUSINESS_STATE.COMPOSING]: 'query-composer',
+  [BUSINESS_STATE.SEARCHING]: 'search-status',
+  [BUSINESS_STATE.RESULTS]: 'candidate-viewer',
+  [BUSINESS_STATE.ASKING]: 'question-card',
+  [BUSINESS_STATE.FOUND_ALBUM]: 'candidate-viewer',
+  [BUSINESS_STATE.FOUND_TRACK]: 'candidate-viewer',
+  [BUSINESS_STATE.NO_RESULT]: 'empty-card',
+  [BUSINESS_STATE.ALL_REJECTED]: 'empty-card',
+  [BUSINESS_STATE.ERROR]: 'error-card'
+};
+
+/* 视觉状态是否属于「长时间粒子动画」——reduced-motion 时全部降级 */
+const HEAVY_VISUAL_STATES = [VISUAL_STATE.DISSOLVING, VISUAL_STATE.MORPHING, VISUAL_STATE.ATTRACTING];
+
+/* 空结果区分的四种原因（禁止把「用户全排除了」当成「后端没有答案」） */
+const NO_RESULT_REASON = {
+  NO_MATCH: 'NO_MATCH',
+  ALL_REJECTED: 'ALL_REJECTED',
+  LOW_CONFIDENCE: 'LOW_CONFIDENCE',
+  EMPTY_RESPONSE: 'EMPTY_RESPONSE'
+};
+
+const NO_RESULT_TEXT = {
+  [NO_RESULT_REASON.NO_MATCH]: '不是你记错了，也可能是我们还没有收录。',
+  [NO_RESULT_REASON.ALL_REJECTED]: '本轮候选都被你排除了。可以补充一点记忆，重新找找。',
+  [NO_RESULT_REASON.LOW_CONFIDENCE]: '目前没有足够接近的候选，再补充一点细节会更准。',
+  [NO_RESULT_REASON.EMPTY_RESPONSE]: '搜索服务这次没有返回候选，可以重试或补充记忆。'
+};
+
+/* ===== js/search/search-controller.js ===== */
+/*
+ * Seek 前端 · 搜索主控（唯一的流程协调层）
+ * ---------------------------------------------------------------------------
+ * 数据流：
+ *   用户事件 → Store → seek-api → candidate-mapper → Store → 粒子引擎 → View
+ *
+ * 职责：打开/关闭搜索、提交记忆、补充记忆、追问、排除、收藏、确认；
+ *       业务状态机；请求取消与竞态（只有最新 token 能改 Store）。
+ * 禁止：直接 fetch、直接操作 CD 编辑器 DOM、自己计算相似度。
+ *
+ * 依赖方向：controller → view / store / api / engine，绝不反向。
+ */
+
+function createSearchApp({ store, api, engine, library, scene, config, demoProvider: injectedDemo }) {
+  const demoProviderRef = injectedDemo;
+  /* 会话级可变状态：只在这里维护，视图与引擎都不持有 */
+  let requestId = 0, visualId = 0, controller = null, lastOperation = 'search';
+  let isOpen = false, overview = false, detailsBusy = false;
+
+  const overlay = el('search-overlay');
+  const trigger = $('.neon-body');
+  const view = createSearchView({
+    store,
+    onPickTrack: (title) => finish(title)
+  });
+
+  /* SearchSessionStore, transport and presentation deliberately have separate responsibilities. */
+  
+  // ============================================================================
+  // 搜索 · 会话状态
+  // ============================================================================
+  
+  // ============================================================================
+  // 搜索 · 错误类型
+  // ============================================================================
+  
+  // ============================================================================
+  // 搜索 · 网络适配（demo / 自定义接口 / Seek 后端）
+  // ============================================================================
+  
+  // ============================================================================
+  // 搜索 · 候选数据规范化
+  // ============================================================================
+  
+  trigger.setAttribute('role','button');trigger.setAttribute('tabindex','0');trigger.setAttribute('aria-label','SEEK：从记忆寻找音乐');trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');$('.neon').removeAttribute('aria-hidden');
+  
+  function setState(state){store.state=state;overlay.dataset.state=state;document.body.dataset.seekState=state;try{scene.setSearchActive(isOpen)}catch{}overlay.setAttribute('aria-busy',String(['SEARCHING','RERANKING'].includes(state)));el('search-bottom').hidden=!store.query||['SEARCH_FOCUS','COMPOSING','MEMORY_DISSOLVE'].includes(state);el('add-memory').disabled=['MEMORY_DISSOLVE','SEARCHING','RERANKING'].includes(state);el('supplement-input').disabled=el('add-memory').disabled;el('supplement-form').querySelector('button').disabled=el('add-memory').disabled;updateMemory();}
+  /* The remembered line never crosses the previous-cover button: the column is
+     measured against that button, and the text breaks after commas so every line
+     stays flush left inside it. */
+  
+  // ============================================================================
+  // 搜索 · 记忆栏渲染
+  // ============================================================================
+  function updateMemory(){view.renderMemoryDraft();el('memory-anchor').hidden=false;el('memory-count').textContent=store.memories.length?`补充记忆 · ${store.memories.length}` : '';view.renderMemoryNotes();el('service-button').textContent=store.demo?'示例演示 · 非真实搜索':api.endpoint||api.provider?'搜索服务已连接':'连接搜索服务';store.save()}
+  /* Memory 栏必须实时镜像输入框：view.memoryDraft() 取「当前正在键入的草稿」，
+     而不是已提交的 store.query —— 这样边打字边同步，清空输入框也会回到占位文案。 */
+  
+  /* A search session owns its memories: leaving the search forgets them. */
+  function forgetMemory(){store.query='';store.memories=[];store.answers=[];store.excluded.clear();store.candidates=[];store.index=0;store.question=null;store.sessionId=null;store.albumId=null;const q=el('query-input');if(q)q.value='';const s=el('supplement-input');if(s)s.value='';updateMemory()}
+  function cancelRequest(){requestId++;controller?.abort();controller=null;visualId++;engine.cancel()}
+  function open(){if(isOpen)return;isOpen=true;try{scene.clear()}catch{}try{scene.setSearchActive(true)}catch{}overlay.hidden=false;document.body.classList.add('search-active');$('.viewport').inert=true;trigger.setAttribute('aria-expanded','true');el('query-input').value=store.query;document.body.classList.remove('sign-lit');setTimeout(()=>{if(isOpen)document.body.classList.add('sign-lit')},540);edit();view.renderMemoryDraft();}
+  function close(){cancelRequest();engine.stop();isOpen=false;try{scene.setSearchActive(false)}catch{}document.body.classList.remove('search-active');document.body.classList.remove('memory-compose');document.body.classList.remove('sign-lit');document.body.classList.remove('overview-open');overlay.hidden=true;$('.viewport').inert=false;trigger.setAttribute('aria-expanded','false');forgetMemory();setState('ORBIT');trigger.focus({preventScroll:true})}
+  function edit(){cancelRequest();engine.stop();overview=false;el('service-settings').hidden=true;el('supplement-form').hidden=true;el('query-input').disabled=false;el('submit-search').disabled=false;el('query-input').value=store.query;setState('SEARCH_FOCUS');view.showPanels('query-composer');el('composer-notice').textContent=store.demo?'当前为交互演示：候选均为示例专辑，不会进行真实检索。':'';setTimeout(()=>el('query-input').focus(),80)}
+  async function submit(event){event?.preventDefault();if(el('submit-search').disabled)return;let query=el('query-input').value.trim();if(!query){el('composer-notice').textContent='写一句你记得的，或点下面的示例试试。';el('query-input').focus();return}if(query!==store.query){store.memories=[];store.answers=[];store.excluded.clear();store.sessionId=null;store.albumId=null}store.query=query;el('submit-search').disabled=true;el('query-input').disabled=true;setState('SEARCH_SUBMITTED');el('query-composer').classList.add('jitter');setTimeout(()=>el('query-composer').classList.remove('jitter'),240);await run('search',query)}
+  
+  // ============================================================================
+  // 搜索 · 主流程（发起检索 → 分发结果）
+  // ============================================================================
+  async function run(operation,particleText=''){
+   cancelRequest();const id=requestId,oldTop=store.current()?.id;controller=new AbortController();lastOperation=operation;el('supplement-form').hidden=true;el('session-notice').textContent='';el('candidate-cover').classList.remove('ready');el('cover-slot').classList.remove('ready');setState(particleText?'MEMORY_DISSOLVE':operation==='search'?'SEARCHING':'RERANKING');
+   const pending=api.request(store.payload(operation),controller.signal).then(value=>({value}),error=>({error}));
+   if(particleText){const box=el('query-composer').hidden?{left:innerWidth*.25,top:innerHeight*.55,width:innerWidth*.5}:el('query-input').getBoundingClientRect(),cs=el('query-composer').hidden?null:getComputedStyle(el('query-input'));await engine.dissolve(particleText,box,cs?{size:parseFloat(cs.fontSize)||20,line:parseFloat(cs.lineHeight)||30,pad:parseFloat(cs.paddingTop)||0,color:cs.color,family:cs.fontFamily}:{size:22,color:'#f6d3a0'});if(id!==requestId)return}
+   view.showPanels('search-status');setState(operation==='search'?'SEARCHING':'RERANKING');el('status-title').textContent=operation==='search'?'正在从这些记忆里寻找……':'重新理解你的记忆……';el('status-detail').textContent=store.demo?'示例演示正在返回预设数据，不代表真实检索。':'';engine.float();
+   const result=await pending;if(id!==requestId||!isOpen)return;
+   if(result.error){if(result.error.name!=='AbortError')showError(result.error);return}
+   const data=result.value;store.sessionId=data.sessionId||store.sessionId;store.question=data.question&&typeof data.question.text==='string'?{id:String(data.question.id||''),text:data.question.text}:null;
+   store.candidates=data.candidates.filter(c=>!store.excluded.has(c.id));store.index=0;store.save();
+   if(!store.candidates.length){empty();return}
+   if(operation!=='search'&&oldTop===store.candidates[0].id)el('session-notice').textContent='它依然是目前最接近的结果。';
+   engine.attract(motion.matches?0:540);
+   el('status-title').textContent='最像你记忆里的，可能是：';el('status-detail').textContent='';await sleep(motion.matches?80:460);if(id!==requestId)return;showCandidate(0,true)
+  }
+  function showError(error){engine.fade(620);view.showPanels('error-card');setState('ERROR');const names={unconnected:'搜索服务尚未连接',network:'连接暂时中断',timeout:'搜索等待超时',model:'模型暂时无法完成搜索',request:'搜索请求未被接受',service:'搜索服务暂时不可用'};el('error-title').textContent=names[error.kind]||'暂时无法完成搜索';el('error-message').textContent=error.message||'技术故障不代表没有匹配的音乐。你的描述已保留。';el('retry-search').hidden=error.kind==='unconnected';view.announce(el('error-title').textContent)}
+  function empty(){view.showPanels('empty-card');setState('NO_RESULT');view.announce('这些记忆还没有拼出答案。');const id=++visualId;if(motion.matches){engine.stop();return}const targets=[];for(let i=0;i<360;i++){const side=Math.floor(i/90),t=(i%90)/90;let x=side===0?t:side===1?1:side===2?1-t:0,y=side===0?0:side===1?t:side===2?1:1-t;targets.push({x:innerWidth/2+(x-.5)*180+(Math.random()-.5)*18,y:innerHeight*.45+(y-.5)*180+(Math.random()-.5)*18,color:'#dac9ab',size:1.5,alpha:.1})}engine.morph(targets,600,100).then(()=>{if(id===visualId&&store.state==='NO_RESULT')engine.float()})}
+  
+  function loadImage(src,cors=true){return new Promise((resolve,reject)=>{const image=new Image();if(cors&&!src.startsWith('data:')&&!src.startsWith('file:'))image.crossOrigin='anonymous';const timer=setTimeout(()=>reject(new Error('封面加载超时')),10000);image.onload=()=>{clearTimeout(timer);resolve(image)};image.onerror=()=>{clearTimeout(timer);reject(new Error('封面无法加载'))};image.src=src})}
+  
+  // ============================================================================
+  // 搜索 · 候选展示与粒子→封面手交
+  // ============================================================================
+  async function showCandidate(index,first=false){if(!store.candidates.length){empty();return}const id=++visualId;engine.cancel();store.index=(index+store.candidates.length)%store.candidates.length;const c=store.current();overview=false;view.showPanels('candidate-viewer');setState('CANDIDATE_FORMING');view.layoutMemory();view.paintCandidate(c);refreshFavorite(c);if(first){el('candidate-viewer').tabIndex=-1;el('candidate-viewer').focus({preventScroll:true})}el('cover-error').hidden=true;const cover=el('candidate-cover');let image,targets;
+   try{image=await loadImage(c.cover);if(id!==visualId)return;try{targets=engine.sample(image,el('cover-slot').getBoundingClientRect())}catch{targets=null}}
+   catch{try{image=await loadImage(c.cover,false)}catch{if(id!==visualId)return;el('cover-error').hidden=false;engine.stop();setState('CANDIDATE_VIEW');return}}
+   if(id!==visualId||!isOpen)return;let done=true;
+   if(targets?.length){
+    if(cover.classList.contains('ready')&&cover.complete&&cover.naturalWidth){try{engine.capture(cover,el('cover-slot').getBoundingClientRect())}catch{}}
+    cover.classList.add('particle-handoff');cover.classList.remove('ready');el('cover-slot').classList.remove('ready');
+    done=await engine.morph(targets,1150,110,first);
+   }else{cover.classList.remove('ready');el('cover-slot').classList.remove('ready');engine.stop();await sleep(180)}
+   if(!done||id!==visualId||!isOpen)return;cover.classList.remove('particle-handoff');cover.alt=`${c.title} — ${c.artist} 专辑封面`;cover.src=c.cover;await cover.decode().catch(()=>{});if(id!==visualId||!isOpen)return;cover.classList.add('ready');el('cover-slot').classList.add('ready');setState('CANDIDATE_VIEW');view.announce(`${c.title}，${c.artist}，第 ${store.index+1} 张，共 ${store.candidates.length} 张`);await sleep(210);if(id===visualId)engine.fade(320)
+  }
+  function next(dir){if(!['CANDIDATE_VIEW','CANDIDATE_FORMING'].includes(store.state)||overview)return;showCandidate(store.index+dir)}
+  function reject(){if(!store.current())return;store.excluded.add(store.current().id);store.candidates.splice(store.index,1);if(store.candidates.length)showCandidate(Math.min(store.index,store.candidates.length-1));else ask()}
+  function ask(){visualId++;engine.float();setState('ASKING');view.showPanels('question-card');el('question-text').textContent=store.question?.text||'再告诉我一个你记得的细节。';el('question-note').textContent=store.question?'不确定也没关系，我们会保留这份不确定。':'封面、声音、听到它的地方，都可以。';el('question-choices').hidden=!store.question;if(!store.question)addMemory();view.announce(el('question-text').textContent)}
+  function addMemory(){el('supplement-form').hidden=false;el('supplement-input').disabled=false;document.body.classList.add('memory-compose');setTimeout(()=>el('supplement-input').focus(),50)}
+  function overviewShow(){visualId++;engine.stop();overview=true;view.showPanels('candidate-overview');setState('CANDIDATE_VIEW');el('overview-grid').replaceChildren();store.candidates.forEach((c,i)=>{const b=document.createElement('button'),img=document.createElement('img'),name=document.createElement('strong'),artist=document.createElement('small');img.src=c.cover;img.alt=c.title;img.loading='lazy';name.textContent=c.title;artist.textContent=c.artist;b.append(img,name,artist);b.onclick=()=>showCandidate(i);el('overview-grid').append(b)})}
+  
+  async function found(){visualId++;engine.float();const c=store.current();if(!c)return;store.albumId=c.id;setState('FOUND');el('candidate-cover').src=c.cover;el('candidate-cover').classList.add('ready');el('cover-slot').classList.add('ready');el('candidate-actions').hidden=el('candidate-position').hidden=true;el('previous-candidate').hidden=el('next-candidate').hidden=true;el('found-details').hidden=false;el('candidate-reasons').replaceChildren();view.renderTracks(c);
+   if(c.tracks===null){detailsBusy=true;const id=++requestId;controller?.abort();controller=new AbortController();el('track-notice').textContent='正在读取曲目……';try{const data=await api.request(store.payload('details'),controller.signal);if(id!==requestId)return;if(!data.candidate){view.renderTracks(c);return}if(data.candidate.id!==c.id)throw new SearchFailure('service','详情与当前专辑不一致。');Object.assign(c,data.candidate);view.renderTracks(c)}catch(e){if(id===requestId&&e.name!=='AbortError')el('track-notice').textContent='曲目暂时无法读取。专辑信息和你的记忆已保留，可返回候选后重试。'}finally{detailsBusy=false}}
+  }
+  function finish(title=''){setState('COMPLETED');engine.stop();el('track-notice').textContent=title?`找到了：${title}`:'找到了。让这段记忆重新播放。';el('found-details').querySelector('.state-actions').hidden=true;view.announce(el('track-notice').textContent)}
+  function settings(){el('endpoint-input').value=api.endpoint;el('service-settings').hidden=false;el('service-notice').textContent='';setTimeout(()=>el('endpoint-input').focus(),50)}
+  function setDemo(){cancelRequest();store.demo=true;api.provider=demoProviderRef;store.query='封面偏蓝绿色，像夜里漂浮的光。';store.memories=[];store.answers=[];store.excluded.clear();store.sessionId=null;store.albumId=null;el('query-input').value=store.query;edit();el('composer-notice').textContent='示例演示已开启。点击「开始寻找」，体验完整交互；这些不是实际搜索结果。'}
+  // Explicit opt-in fixture provider. Never used by normal requests or production adapters.
+  
+  trigger.addEventListener('click',open);trigger.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});el('orbit-search').onclick=open;el('close-search').onclick=close;el('edit-memory').onclick=edit;el('query-composer').onsubmit=submit;el('query-input').addEventListener('input',()=>{if(store.state==='SEARCH_FOCUS')setState('COMPOSING');view.renderMemoryDraft()});
+  /* 示例提示：点一下就自动录入并立即开始寻找。
+     若当前没有连接任何搜索服务，自动切到明确标注的演示数据，保证「一键可用」。 */
+  function useExample(text){if(!text)return;const input=el('query-input');if(!api.endpoint&&!api.provider){store.demo=true;api.provider=demoProviderRef}input.disabled=false;el('submit-search').disabled=false;input.value=text;view.renderMemoryDraft();el('composer-notice').textContent='';submit()}
+  /* 示例库：这是全站唯一的示例来源 —— 输入框的 placeholder 与下方轮播按钮共用它，
+     避免两处各自轮播、文字对不上。要改示例，只改这个数组。 */
+  const EXAMPLE_HINTS=[
+   '日语歌，封面好像有很多黑色的鞋',
+   '封面偏蓝绿色，像夜里漂浮的光。',
+   '封面可能是红色，但我不太确定',
+   '在动画里听过，好像是摇滚',
+   '女声，应该是十年前左右听到的',
+   '副歌有一段弦乐，好像是二〇一九年前后听到的'
+  ];
+  let exampleIndex=0,exampleTimer=null;
+  function currentExample(){return EXAMPLE_HINTS[exampleIndex%EXAMPLE_HINTS.length]}
+  /* 同步两处显示：搜索框内的 placeholder + 可点击的轮播按钮 */
+  function renderExampleHint(){const hint=currentExample(),node=el('example-roller-text'),input=el('query-input');if(node)node.textContent=hint;if(input&&!input.value)input.placeholder=hint}
+  function startExampleRoller(){if(exampleTimer||motion.matches)return;exampleTimer=setInterval(()=>{const node=el('example-roller-text');if(!node)return;node.classList.add('is-rolling');setTimeout(()=>{exampleIndex++;renderExampleHint();node.classList.remove('is-rolling')},340)},3400)}
+  renderExampleHint();startExampleRoller();
+  el('example-roller').addEventListener('click',()=>useExample(currentExample()));el('query-input').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')submit(e)});
+  el('previous-candidate').onclick=()=>next(-1);el('next-candidate').onclick=()=>next(1);el('reject-candidate').onclick=reject;el('reject-all').onclick=ask;el('accept-candidate').onclick=()=>{el('found-details').querySelector('.state-actions').hidden=false;found()};el('show-overview').onclick=overviewShow;el('close-overview').onclick=()=>showCandidate(store.index);el('add-memory').onclick=addMemory;el('empty-add').onclick=addMemory;el('rewrite-query').onclick=edit;el('error-edit').onclick=edit;el('relax-query').onclick=()=>run('relax');el('retry-search').onclick=()=>run(lastOperation);el('found-song').onclick=()=>finish();el('album-only').onclick=()=>{el('session-notice').textContent='已保留这张专辑。再补充一点歌曲的记忆。';addMemory()};el('back-candidates').onclick=()=>{cancelRequest();showCandidate(store.index)};
+  /* Library: one-click favourite + custom entry. */
+  function refreshFavorite(c){const a=el('favorite-candidate'),b=el('favorite-found');const fav=c?library.has(c.id):false;if(a){a.textContent=fav?'★ 已收藏':'★ 收藏';a.disabled=fav;a.classList.toggle('saved',fav)}if(b){b.textContent=fav?'★ 已收藏':'★ 收藏到唱片机';b.disabled=fav;b.classList.toggle('saved',fav)}}
+  function favoriteCurrent(){const c=store.current();if(!c)return;if(library.has(c.id)){library.remove(c.id);el('session-notice').textContent='已从主页唱片机移除。';refreshFavorite(c);return}if(library.addFavorite(c)){el('session-notice').textContent='已收藏到主页唱片机，返回首页即可看到。';refreshFavorite(c)}}
+  el('favorite-candidate').onclick=favoriteCurrent;
+  el('favorite-found').onclick=favoriteCurrent;
+  
+  // ============================================================================
+  // 编辑 CD 集 · 拖拽排序 / 详情弹窗
+  // ============================================================================
+  
+  
+  el('supplement-form').onsubmit=e=>{e.preventDefault();if(el('supplement-input').disabled)return;let text=el('supplement-input').value.trim();if(!text)return;store.memories.push(text);store.save();el('supplement-input').value='';el('session-notice').textContent='加入新的记忆';document.body.classList.remove('memory-compose');run('rerank',text)};
+  el('question-choices').onclick=e=>{let value=e.target.dataset.answer;if(!value||store.state!=='ASKING')return;store.answers.push({questionId:store.question.id,value});run('answer',e.target.textContent)};
+  ['service-button','error-service'].forEach(id=>el(id).onclick=settings);el('close-settings').onclick=()=>{el('service-settings').hidden=true;el('service-button').focus()};el('service-settings').onsubmit=e=>{e.preventDefault();try{const u=new URL(el('endpoint-input').value);if(!['http:','https:'].includes(u.protocol))throw 0;api.endpoint=u.href;api.provider=null;store.demo=false;try{localStorage.setItem('seek-endpoint',u.href)}catch{}el('service-settings').hidden=true;updateMemory();edit();el('composer-notice').textContent='服务地址已保存，下次提交将使用这个接口。'}catch{el('service-notice').textContent='请输入有效的 HTTP 或 HTTPS 地址。'}};
+  const demoButton=document.createElement('button');demoButton.type='button';demoButton.className='text-button';demoButton.id='demo-search';demoButton.textContent='先用示例专辑体验完整流程';demoButton.onclick=()=>{setDemo();submit()};el('query-composer').append(demoButton);
+  let touchStart=null,wheelTotal=0,lastWheel=0;el('cover-stage').addEventListener('pointerdown',e=>{if(e.pointerType==='touch')touchStart={x:e.clientX,y:e.clientY}});el('cover-stage').addEventListener('pointerup',e=>{if(!touchStart)return;let dx=e.clientX-touchStart.x,dy=e.clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))next(dx<0?1:-1)});el('cover-stage').addEventListener('wheel',e=>{if(Math.abs(e.deltaX)<=Math.abs(e.deltaY))return;e.preventDefault();if(performance.now()-lastWheel>220)wheelTotal=0;wheelTotal+=e.deltaX;lastWheel=performance.now();if(Math.abs(wheelTotal)>75){next(wheelTotal>0?1:-1);wheelTotal=0}},{passive:false});
+  overlay.addEventListener('keydown',e=>{let input=e.target.matches('textarea,input')&&!e.target.disabled&&e.target.getClientRects().length>0;if(e.key==='Escape'){e.preventDefault();if(document.body.classList.contains('memory-compose')){document.body.classList.remove('memory-compose');el('supplement-form').hidden=true;return}if(!el('service-settings').hidden){el('service-settings').hidden=true}else close();return}if(!input&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();next(e.key==='ArrowLeft'?-1:1)}if(e.key==='Tab'){const list=[...overlay.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(n=>!n.disabled&&n.getClientRects().length);const a=list[0],b=list.at(-1);if(e.shiftKey&&document.activeElement===a){e.preventDefault();b?.focus()}else if(!e.shiftKey&&document.activeElement===b){e.preventDefault();a?.focus()}}});
+  /* 旧的 placeholder 独立轮播已移除：统一由 startExampleRoller() 驱动
+     （renderExampleHint 会同时更新 placeholder 与轮播按钮）。 */
+  
+  addEventListener('resize',()=>{if(isOpen&&['CANDIDATE_VIEW','CANDIDATE_FORMING'].includes(store.state)&&!overview)showCandidate(store.index)});motion.addEventListener('change',()=>{engine.stop();if(isOpen&&store.state==='CANDIDATE_FORMING')showCandidate(store.index)});
+  
+  // ============================================================================
+  // 对外接口 · window.SeekSearch
+  // ============================================================================
+  /*
+   * 三种接入方式（任选其一），接完 UI 里的「示例演示」标签会自动变回「搜索服务已连接」：
+   *
+   *   A. SeekSearch.connectSeek('http://127.0.0.1:8000');          // 接 seek 后端（推荐）
+   *   B. SeekSearch.setEndpoint('http://127.0.0.1:8000/search');   // 接任意 HTTP 接口
+   *   C. SeekSearch.setProvider(async (payload,{signal})=>({candidates:[…]}));  // 完全自定义
+   *
+   * 辅助：SeekSearch.health() 探活、SeekSearch.setTimeout(120000) 放宽等待上限、
+   *       SeekSearch.getState() / getCurrentCandidate() 自检。
+   */
+  const apiFacade = {
+    open: open,
+    close: close,
+    /* A. 接 seek 后端。传服务根地址，不要带 /search。
+          返回 Promise（/health 探活结果）：失败只影响提示文案，不阻塞后续使用。 */
+    connectSeek(baseUrl) {
+      const url = new URL(baseUrl, location.href);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new TypeError('HTTP(S) endpoint required');
+      const base = url.href.replace(/\/+$/, '');
+      api.provider = seekProvider(base);
+      api.endpoint = '';
+      api.base = base;
+      store.demo = false;
+      updateMemory();
+      return pingSeekService(base).then(function (info) {
+        el('composer-notice').textContent =
+          '已连接搜索服务，索引 ' + (info.index_count == null ? '?' : info.index_count) + ' 条。';
+        return info;
+      }).catch(function (error) {
+        el('composer-notice').textContent =
+          '无法确认搜索服务状态：' + (error && error.message ? error.message : error);
+        throw error;
+      });
+    },
+    /* B. 接任意 HTTP 接口：扁平 candidates（id/title/cover）或 seek 嵌套结构都能识别 */
+    setEndpoint(url) {
+      const target = new URL(url, location.href);
+      if (!['http:', 'https:'].includes(target.protocol)) throw new TypeError('HTTP(S) endpoint required');
+      api.endpoint = target.href;
+      api.base = target.origin;
+      api.provider = null;
+      store.demo = false;
+      updateMemory();
+    },
+    /* C. 完全自定义：fn(payload, { signal }) → { candidates, question, sessionId } */
+    setProvider(fn) {
+      if (typeof fn !== 'function') throw new TypeError('provider must be a function');
+      api.provider = fn;
+      api.endpoint = '';
+      api.base = '';
+      store.demo = false;
+      updateMemory();
+    },
+    /* 探活：Promise<{ status, message, index_count, index_reused }> */
+    health() {
+      if (!api.base) return Promise.reject(new SearchFailure('unconnected', '尚未连接搜索服务。'));
+      return pingSeekService(api.base);
+    },
+    /* 首次检索要加载模型，可能超过默认等待上限，用它调大（毫秒） */
+    setTimeout(ms) {
+      const value = Number(ms);
+      if (!Number.isFinite(value) || value < 1000) throw new TypeError('timeout 需要 >= 1000 的毫秒数');
+      api.timeout = value;
+    },
+    getState() {
+      return {
+        state: store.state, query: store.query, count: store.candidates.length,
+        index: store.index, demo: store.demo, excluded: [...store.excluded]
+      };
+    },
+    getCurrentCandidate() {
+      const c = store.current();
+      return c ? {
+        id: c.id, title: c.title, artist: c.artist, cover: c.cover,
+        year: c.year, genre: c.genre, language: c.language, tracks: (c.tracks || []).slice()
+      } : null;
+    },
+    /* 双击唱片机上的唱片时，外部可调它打开该唱片的编辑弹窗 */
+    editRecord(id) { if (id != null) library.openRecordEditor(id); },
+    useDemo: setDemo
+  };
+  return apiFacade;
+}
+
+/* ===== js/main.js ===== */
+/*
+ * Seek 前端 · 应用入口
+ * ---------------------------------------------------------------------------
+ * 只做「读取配置 → 装配模块 → 暴露调试接口」，不承担任何业务算法。
+ *
+ * 依赖方向（单向，禁止反向 import）：
+ *   main → search-controller → search-view / search-store / seek-api / particles
+ *        → scene / library / demo
+ *        → shared
+ *
+ * 想改什么，先看这里：
+ *   首页 3D 世界   → js/scene/orbit-scene.js
+ *   深空与星尘     → js/scene/deep-sky.js
+ *   唱片收藏       → js/library/cd-library.js
+ *   搜索流程       → js/search/search-controller.js
+ *   后端协议       → js/search/seek-api.js
+ *   字段映射       → js/search/candidate-mapper.js
+ *   粒子动画       → js/search/particle-morph-engine.js
+ *   示例数据       → js/demo/
+ *   接口地址/超时  → config/seek-config.js
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. 氛围层：深空画布 + 星尘（与搜索、唱片机无耦合）
+ * ------------------------------------------------------------------------- */
+const deepSky = createDeepSky();
+
+/* ---------------------------------------------------------------------------
+ * 2. 收藏层：演示唱片 + 用户收藏 + 手动新建，统一持久化
+ *    候选不会自动进入这里，只有用户点「★ 收藏到唱片机」才会 addAlbum()
+ * ------------------------------------------------------------------------- */
+/* scene 在下一步创建；这里先声明，保证收藏变化回调始终可用 */
+let scene = null;
+
+const library = createCdLibrary({
+  initialAlbums: demoAlbums.map((album, index) => ({
+    id: `demo-${index}`,
+    title: album.title,
+    artist: album.artist,
+    year: album.year,
+    genre: album.genre,
+    cover: album.cover,
+    colors: album.colors,
+    source: 'demo'
+  })),
+  storageKey: 'seek-collection-v1',
+  onLibraryChange: (albums) => { if (scene) scene.setAlbums(albums); }
+});
+
+/* ---------------------------------------------------------------------------
+ * 3. 场景层：3D 唱片机与环绕唱片
+ *    搜索模块只允许通过 scene.setSearchActive() 影响场景，不得直接改内部 DOM
+ * ------------------------------------------------------------------------- */
+scene = createOrbitScene({
+  root: document.querySelector('#albums'),
+  initialAlbums: library.getAlbums(),
+  generateArtwork,
+  onSelect: () => {}
+});
+
+/* ---------------------------------------------------------------------------
+ * 4. 搜索层：状态 / 通信 / 动画 / 视图 / 主控
+ * ------------------------------------------------------------------------- */
+const store = new SearchSessionStore();
+const api = createSeekApi();
+api.timeout = seekConfig.requestTimeoutMs;
+
+const engine = new ParticleMorphEngine(el('search-particles'), {
+  /* 引擎不认识视图：尺寸变化只通过回调通知外部重新排版记忆栏 */
+  onResize: () => { window.dispatchEvent(new Event('seek:layout-memory')); },
+  limits: seekConfig.particle
+});
+
+const app = createSearchApp({
+  store,
+  api,
+  engine,
+  library,
+  scene,
+  config: seekConfig,
+  demoProvider
+});
+
+/* 引擎尺寸变化 → 让搜索视图重排记忆栏（保持单向依赖） */
+window.addEventListener('seek:layout-memory', () => app.layoutMemory && app.layoutMemory());
+
+/* ---------------------------------------------------------------------------
+ * 5. 调试 / 对接 Facade：兼容旧的 window.SeekSearch
+ *    生产环境不要把「随便改接口地址」当作主要功能
+ * ------------------------------------------------------------------------- */
+window.SeekSearch = Object.assign({}, app, {
+  debug() {
+    return {
+      frontendVersion: seekConfig.frontendVersion,
+      apiBase: api.endpoint || seekConfig.apiBase || '(same-origin /search)',
+      backendState: store.backendStatus || 'unknown',
+      sessionId: store.sessionId,
+      capabilities: store.capabilities,
+      demo: store.demo,
+      businessState: store.state
+    };
+  }
+});
+
+/* 演示模式下不允许静默 fallback：这里只在用户主动调用 useDemo() 时生效 */
+if (seekConfig.demoEnabled === false) {
+  delete window.SeekSearch.useDemo;
+}
+
+/* 无障碍：尊重系统「减少动态效果」，动画降级但不影响搜索结果 */
+motion.addEventListener('change', () => {
+  if (motion.matches) engine.stop();
+});
+
+/* 首帧后补一次记忆栏排版（字体/布局稳定后计算更准） */
+requestAnimationFrame(() => {
+  if (app.layoutMemory) app.layoutMemory();
+});
+</script>
+</body>
+</html>
