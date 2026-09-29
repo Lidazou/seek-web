@@ -7,10 +7,14 @@
 
 ## 🔗 在线查看
 
+[![Release](https://img.shields.io/github/v/release/Lidazou/seek-web?label=Release&color=b8a77d)](https://github.com/Lidazou/seek-web/releases/latest)
+[![Pages](https://img.shields.io/badge/demo-GitHub%20Pages-b8a77d)](https://lidazou.github.io/seek-web/)
+
 | 看什么 | 链接 | 说明 |
 |---|---|---|
 | **🌐 完整应用** | **https://lidazou.github.io/seek-web/** | 模块化正式版，部署在 GitHub Pages |
-| **📄 单文件版** | **https://lidazou.github.io/seek-web/standalone/seek-web.standalone.html** | 整个前端压成一个 HTML，打开即用 |
+| **📄 单文件版（在线看）** | **https://lidazou.github.io/seek-web/standalone/seek-web.standalone.html** | 整个前端压成一个 HTML，打开即用 |
+| **⬇️ 单文件版（下载存档）** | **[Releases → seek-web.standalone.html](https://github.com/Lidazou/seek-web/releases/latest)** | 永久下载按钮，约 199 KB，可离线收藏 |
 | 📦 源码仓库 | https://github.com/Lidazou/seek-web | 本页面 |
 
 > **单文件版是什么**：把 9 个 CSS 与 19 个 ES Module 全部内联进一个 HTML（约 200 KB），
@@ -108,6 +112,11 @@ standalone/seek-web.standalone.html
 
 它是把 9 个 CSS 与 19 个 ES Module 全部内联后的**单文件 HTML**，
 `file://` 也能跑，适合本地查看、分享、离线演示。
+
+**两种获取方式：**
+
+- 在线看：`https://lidazou.github.io/seek-web/standalone/seek-web.standalone.html`
+- 下载存档：[Releases 页面](https://github.com/Lidazou/seek-web/releases/latest) → 附件 `seek-web.standalone.html`（永久链接，适合收藏或发给别人）
 
 > ⚠️ **它是自动生成的，不要直接改。**
 > 源码仍然在 `index.html` + `styles/` + `js/`；改完源码后重新生成：
