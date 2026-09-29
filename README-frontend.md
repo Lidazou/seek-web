@@ -1,4 +1,4 @@
-﻿# SEEK 前端 · 开发与对接说明
+# SEEK 前端 · 开发与对接说明
 
 > 面向真实后端接入的模块化前端。Vanilla HTML + CSS + ES Modules，无框架、无构建步骤。
 
@@ -82,33 +82,29 @@ main
 
 ---
 
-## 3. 本地启动（重要）
+## 3. 本地启动
 
-**为什么不能直接双击 `index.html`：**
-这个版本用 ES Module 把代码拆成了 19 个 js 文件 + 9 个 css 文件。
-浏览器出于安全策略，**禁止 `file://` 页面用 import 加载本地模块**，
-所以双击打开会白屏 / 只有结构没有样式。这不是坏了，是必须走 HTTP。
-
-**最简单的启动方式**（仓库自带、零依赖、跨平台）：`node serve.mjs`
-
-手动启动：
+项目使用 ES Modules，模块脚本不通过 `file://` 协议加载，本地运行使用仓库自带的静态服务器：
 
 ```bash
-cd SEEK_Frontend
-python -m http.server 8899        # 或 npx serve -l 8899
-# 浏览器打开 http://127.0.0.1:8899/
+node serve.mjs          # 默认 http://127.0.0.1:8899
 ```
 
-**只是想看效果、不想开服务器？** 直接双击上一层的
-`seek_search.html`（重构前的单文件版，功能完全一样）。
+或任意静态服务器：
 
-> ⚠️ 注意：`seek_search.html` 是重构前的快照，之后的修改只会进 `SEEK_Frontend/`，
-> 两者会逐渐分叉。要长期维护请用模块化版本。
+```bash
+python -m http.server 8899
+# 或
+npx serve -l 8899
+```
+
+无需服务器直接查看：使用单文件构建产物 `standalone/seek-web.standalone.html`，
+或从 [Releases](https://github.com/Lidazou/seek-web/releases/latest) 下载同名附件。
+该产物由 `node tools/build-standalone.mjs` 生成，是源码的构建结果而非第二份源码。
 
 ### 自检命令
 
 ```bash
-cd SEEK_Frontend
 node tools/verify-modules.js .    # 模块依赖 / 导出 / DOM id / 全局残留
 node tools/import-test.mjs        # 真实 import 每个模块并实例化
 ```
