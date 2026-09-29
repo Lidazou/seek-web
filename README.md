@@ -5,6 +5,21 @@
 > 一个把「记忆」变成粒子的音乐检索前端：你描述封面、曲风、年代或场景，
 > 文字先解体成粒子，搜索进行时粒子悬浮，最后汇聚成最可能的那张唱片封面。
 
+## 🔗 在线查看
+
+| 看什么 | 链接 | 说明 |
+|---|---|---|
+| **🌐 完整应用** | **https://lidazou.github.io/seek-web/** | 模块化正式版，部署在 GitHub Pages |
+| **📄 单文件版** | **https://lidazou.github.io/seek-web/standalone/seek-web.standalone.html** | 整个前端压成一个 HTML，打开即用 |
+| 📦 源码仓库 | https://github.com/Lidazou/seek-web | 本页面 |
+
+> **单文件版是什么**：把 9 个 CSS 与 19 个 ES Module 全部内联进一个 HTML（约 200 KB），
+> 不需要服务器、不需要构建、可以直接下载收藏或发给别人。
+> 它是**构建产物**，源码仍然在 `index.html` + `styles/` + `js/`；
+> 改完源码跑 `node tools/build-standalone.mjs` 重新生成。详见 [`standalone/README.md`](./standalone/README.md)。
+
+---
+
 本仓库是 **[Violet-Galaxy233/seek](https://github.com/Violet-Galaxy233/seek)** 的
 **Web 前端**。它既能独立以「示例演示」模式离线运行，也能通过 HTTP 直连 seek 的 FastAPI 后端。
 
