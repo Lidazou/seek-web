@@ -24,11 +24,6 @@
 
 ---
 
-本仓库是 **[Violet-Galaxy233/seek](https://github.com/Violet-Galaxy233/seek)** 的
-**Web 前端**。它既能独立以「示例演示」模式离线运行，也能通过 HTTP 直连 seek 的 FastAPI 后端。
-
----
-
 ## 目录
 
 - [1. 它长什么样](#1-它长什么样)
